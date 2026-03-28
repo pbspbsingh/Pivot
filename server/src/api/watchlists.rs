@@ -32,6 +32,7 @@ pub async fn create(Json(body): Json<CreateBody>) -> ApiResult<impl axum::respon
         return Err(ApiError::BadRequest("Name cannot be empty".into()));
     }
     let watchlist = db::watchlists::create(body.name.trim()).await?;
+    tracing::info!(id = watchlist.id, name = %watchlist.name, "Watchlist created");
     Ok((StatusCode::CREATED, Json(watchlist)))
 }
 
@@ -47,6 +48,7 @@ pub async fn rename(
         return Err(ApiError::Forbidden("Cannot rename the default watchlist".into()));
     }
     let updated = db::watchlists::rename(id, body.name.trim()).await?;
+    tracing::info!(id, old_name = %watchlist.name, new_name = %updated.name, "Watchlist renamed");
     Ok(Json(updated))
 }
 
@@ -56,6 +58,7 @@ pub async fn delete(Path(id): Path<i64>) -> ApiResult<impl axum::response::IntoR
         return Err(ApiError::Forbidden("Cannot delete the default watchlist".into()));
     }
     db::watchlists::delete(id).await?;
+    tracing::info!(id, name = %watchlist.name, "Watchlist deleted");
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -74,15 +77,20 @@ pub async fn add_stocks(
     }
     db::watchlists::get(id).await?.ok_or_else(|| ApiError::NotFound("Watchlist not found".into()))?;
     db::watchlists::add_stocks(id, &body.symbols).await?;
+    tracing::info!(watchlist_id = id, symbols = ?body.symbols, "Stocks added to watchlist");
     Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn delete_stock(Path((id, symbol)): Path<(i64, String)>) -> ApiResult<impl axum::response::IntoResponse> {
-    db::watchlists::soft_delete_stock(id, &symbol.to_uppercase()).await?;
+    let symbol = symbol.to_uppercase();
+    db::watchlists::soft_delete_stock(id, &symbol).await?;
+    tracing::info!(watchlist_id = id, symbol, "Stock removed from watchlist");
     Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn restore_stock(Path((id, symbol)): Path<(i64, String)>) -> ApiResult<impl axum::response::IntoResponse> {
-    db::watchlists::restore_stock(id, &symbol.to_uppercase()).await?;
+    let symbol = symbol.to_uppercase();
+    db::watchlists::restore_stock(id, &symbol).await?;
+    tracing::info!(watchlist_id = id, symbol, "Stock restored in watchlist");
     Ok(StatusCode::NO_CONTENT)
 }

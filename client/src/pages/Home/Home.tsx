@@ -15,6 +15,7 @@ import { IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
 import { watchlistApi } from '../../api/watchlists';
 import { useAppStore } from '../../store';
 import type { Watchlist } from '../../types';
+import { notifyError } from '../../utils/notify';
 import { WatchlistPanel } from './WatchlistPanel';
 
 export function Home() {
@@ -30,10 +31,12 @@ export function Home() {
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    watchlistApi.list().then((data) => {
-      setWatchlists(data);
-      if (data.length > 0) setActiveId(String(data[0].id));
-    });
+    watchlistApi.list()
+      .then((data) => {
+        setWatchlists(data);
+        if (data.length > 0) setActiveId(String(data[0].id));
+      })
+      .catch((e: Error) => notifyError(e.message));
   }, []);
 
   function onContextMenuRename(w: Watchlist) {
@@ -50,27 +53,39 @@ export function Home() {
   async function handleCreate() {
     const name = nameInput.trim();
     if (!name) return;
-    const created = await watchlistApi.create(name);
-    setWatchlists((prev) => [...prev, created]);
-    setActiveId(String(created.id));
-    closeCreate();
+    try {
+      const created = await watchlistApi.create(name);
+      setWatchlists((prev) => [...prev, created]);
+      setActiveId(String(created.id));
+      closeCreate();
+    } catch (e) {
+      notifyError((e as Error).message);
+    }
   }
 
   async function handleRename() {
     const name = nameInput.trim();
     if (!name || !targetWatchlist) return;
-    const updated = await watchlistApi.rename(targetWatchlist.id, name);
-    setWatchlists((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
-    closeRename();
+    try {
+      const updated = await watchlistApi.rename(targetWatchlist.id, name);
+      setWatchlists((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+      closeRename();
+    } catch (e) {
+      notifyError((e as Error).message);
+    }
   }
 
   async function handleDelete() {
     if (!targetWatchlist) return;
-    await watchlistApi.delete(targetWatchlist.id);
-    const remaining = watchlists.filter((w) => w.id !== targetWatchlist.id);
-    setWatchlists(remaining);
-    setActiveId(remaining.length > 0 ? String(remaining[0].id) : null);
-    closeDelete();
+    try {
+      await watchlistApi.delete(targetWatchlist.id);
+      const remaining = watchlists.filter((w) => w.id !== targetWatchlist.id);
+      setWatchlists(remaining);
+      setActiveId(remaining.length > 0 ? String(remaining[0].id) : null);
+      closeDelete();
+    } catch (e) {
+      notifyError((e as Error).message);
+    }
   }
 
   return (

@@ -12,6 +12,7 @@ import {
 import { IconRefresh, IconTrash, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 import { watchlistApi } from '../../api/watchlists';
 import type { Stock, Watchlist } from '../../types';
+import { notifyError } from '../../utils/notify';
 
 type SortKey = 'symbol' | 'sector' | 'industry' | 'score' | 'score_updated_at';
 
@@ -30,7 +31,9 @@ export function WatchlistPanel({ watchlist }: Props) {
 
   useEffect(() => {
     setDeletedSymbols(new Set());
-    watchlistApi.listStocks(watchlist.id).then(setStocks);
+    watchlistApi.listStocks(watchlist.id)
+      .then(setStocks)
+      .catch((e: Error) => notifyError(e.message));
   }, [watchlist.id]);
 
   function toggleSort(key: SortKey) {
@@ -78,24 +81,36 @@ export function WatchlistPanel({ watchlist }: Props) {
   async function handleAddStocks() {
     const symbols = parseSymbols(tickerInput);
     if (symbols.length === 0) return;
-    await watchlistApi.addStocks(watchlist.id, symbols);
-    const updated = await watchlistApi.listStocks(watchlist.id);
-    setStocks(updated);
-    setTickerInput('');
+    try {
+      await watchlistApi.addStocks(watchlist.id, symbols);
+      const updated = await watchlistApi.listStocks(watchlist.id);
+      setStocks(updated);
+      setTickerInput('');
+    } catch (e) {
+      notifyError((e as Error).message);
+    }
   }
 
   async function handleDelete(symbol: string) {
-    await watchlistApi.deleteStock(watchlist.id, symbol);
-    setDeletedSymbols((prev) => new Set([...prev, symbol]));
+    try {
+      await watchlistApi.deleteStock(watchlist.id, symbol);
+      setDeletedSymbols((prev) => new Set([...prev, symbol]));
+    } catch (e) {
+      notifyError((e as Error).message);
+    }
   }
 
   async function handleRestore(symbol: string) {
-    await watchlistApi.restoreStock(watchlist.id, symbol);
-    setDeletedSymbols((prev) => {
-      const next = new Set(prev);
-      next.delete(symbol);
-      return next;
-    });
+    try {
+      await watchlistApi.restoreStock(watchlist.id, symbol);
+      setDeletedSymbols((prev) => {
+        const next = new Set(prev);
+        next.delete(symbol);
+        return next;
+      });
+    } catch (e) {
+      notifyError((e as Error).message);
+    }
   }
 
   function SortHeader({ label, sortKey }: { label: string; sortKey: SortKey }) {
@@ -164,18 +179,23 @@ export function WatchlistPanel({ watchlist }: Props) {
         </Table.Tbody>
       </Table>
 
-      <Group align="flex-end" gap="sm">
+      <Stack gap={4} maw={400}>
+        <Text size="xs" fw={500} c="dimmed">Add Tickers</Text>
         <Textarea
-          placeholder={'Enter tickers, one per line or comma-separated\ne.g. AAPL, TSLA\nNVDA'}
+          placeholder={'One per line or comma-separated\ne.g. AAPL, TSLA\nNVDA'}
           value={tickerInput}
           onChange={(e) => setTickerInput(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleAddStocks();
+          }}
           autosize
           minRows={2}
           maxRows={6}
-          style={{ flex: 1 }}
         />
-        <Button onClick={handleAddStocks}>Add</Button>
-      </Group>
+        <Group justify="flex-end">
+          <Button size="xs" onClick={handleAddStocks}>Add</Button>
+        </Group>
+      </Stack>
     </Stack>
   );
 }

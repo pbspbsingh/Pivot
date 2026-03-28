@@ -41,6 +41,7 @@ cargo sqlx database drop && cargo sqlx database create && cargo sqlx migrate run
 - Use `BOOLEAN` / `DATETIME` SQL types — sqlx maps them to Rust `bool` / `chrono::NaiveDateTime`
 - For nullable JOIN columns sqlx cannot statically verify, use `as "col!"` to assert non-null
 - One write connection (`max_connections=1`), WAL journal mode, `synchronous=NORMAL`
+- Log all mutating operations with structured tracing fields; skip read-only handlers
 
 ## Client
 
@@ -55,6 +56,8 @@ cargo sqlx database drop && cargo sqlx database create && cargo sqlx migrate run
 - No CSS-in-JS, no Tailwind — use Mantine component props for styling
 - Keep pages in `src/pages/<PageName>/`, shared components in `src/components/`
 - Soft-delete stocks via API immediately; keep row visible with strikethrough until navigation
+- All async API calls wrapped in try/catch; errors shown via `notifyError()` from `src/utils/notify.ts`
+- Ctrl+Enter / Cmd+Enter submits textarea forms
 
 ## API Routes
 
