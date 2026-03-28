@@ -1,11 +1,15 @@
 use axum::response::sse::Event;
 use std::{
+    collections::HashMap,
     convert::Infallible,
-    sync::{Mutex, OnceLock},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        LazyLock, Mutex,
+    },
     time::Duration,
 };
 use tokio::sync::mpsc;
-use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};
+use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
 
 const CHANNEL_BUFFER: usize = 128;
 
@@ -15,24 +19,24 @@ pub enum SseMessage {
     Quote(String),
 }
 
-static CLIENTS: OnceLock<Mutex<Vec<mpsc::Sender<SseMessage>>>> = OnceLock::new();
+static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+static CLIENTS: LazyLock<Mutex<HashMap<u64, mpsc::Sender<SseMessage>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub fn init() {
-    CLIENTS
-        .set(Mutex::new(Vec::new()))
-        .expect("SSE already initialized");
-
     tokio::spawn(async move {
         loop {
-            tokio::time::sleep(Duration::from_secs(5)).await;
+            tokio::time::sleep(Duration::from_secs(10)).await;
             broadcast(SseMessage::Heartbeat);
         }
     });
 }
 
 pub fn subscribe() -> impl Stream<Item = Result<Event, Infallible>> {
+    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER);
-    CLIENTS.get().unwrap().lock().unwrap().push(tx);
+    CLIENTS.lock().unwrap().insert(id, tx);
+    tracing::debug!("SSE client {id} connected");
 
     ReceiverStream::new(rx).map(|msg| {
         Ok(match msg {
@@ -43,11 +47,11 @@ pub fn subscribe() -> impl Stream<Item = Result<Event, Infallible>> {
 }
 
 pub fn broadcast(msg: SseMessage) {
-    let mut clients = CLIENTS.get().unwrap().lock().unwrap();
-    clients.retain(|tx| match tx.try_send(msg.clone()) {
+    let mut clients = CLIENTS.lock().unwrap();
+    clients.retain(|id, tx| match tx.try_send(msg.clone()) {
         Ok(_) => true,
         Err(e) => {
-            tracing::debug!("Dropping SSE client: {e}");
+            tracing::debug!("Dropping SSE client {id}: {e}");
             false
         }
     });
