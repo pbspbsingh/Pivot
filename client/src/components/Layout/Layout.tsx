@@ -16,6 +16,7 @@ import { IconSettings, IconTrash } from '@tabler/icons-react';
 import { watchlistApi } from '../../api/watchlists';
 import { useAppStore } from '../../store';
 import { useServerEvents } from '../../hooks/useServerEvents';
+import { AnimatedTime } from '../AnimatedTime';
 import { notifyError } from '../../utils/notify';
 import logo from '../../assets/logo.svg';
 
@@ -28,6 +29,7 @@ export function Layout() {
   const [opened, { toggle }] = useDisclosure();
   const navigate = useNavigate();
   const connected = useAppStore((s) => s.connected);
+  const serverTime = useAppStore((s) => s.serverTime);
 
   const watchlists = useAppStore((s) => s.watchlists);
   const setWatchlists = useAppStore((s) => s.setWatchlists);
@@ -108,9 +110,12 @@ export function Layout() {
               />
             </RouterNavLink>
           </Group>
-          <ActionIcon variant="subtle" color="gray" onClick={() => navigate('/settings')}>
-            <IconSettings size={18} />
-          </ActionIcon>
+          <Group gap="xs">
+            {serverTime && <AnimatedTime time={serverTime} />}
+            <ActionIcon variant="subtle" color="gray" onClick={() => navigate('/settings')}>
+              <IconSettings size={18} />
+            </ActionIcon>
+          </Group>
         </Group>
       </AppShell.Header>
 

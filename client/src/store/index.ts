@@ -7,6 +7,8 @@ interface AppState {
   // SSE connection
   connected: boolean;
   setConnected: (connected: boolean) => void;
+  serverTime: string | null;
+  setServerTime: (time: string) => void;
 
   // UI prefs
   tabOrientation: TabOrientation;
@@ -35,6 +37,8 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   connected: false,
   setConnected: (connected) => set({ connected }),
+  serverTime: null,
+  setServerTime: (serverTime) => set({ serverTime }),
 
   tabOrientation: (localStorage.getItem('tabOrientation') as TabOrientation) ?? 'horizontal',
   setTabOrientation: (tabOrientation) => {

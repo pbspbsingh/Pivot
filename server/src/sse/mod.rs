@@ -1,4 +1,5 @@
 use axum::response::sse::Event;
+use chrono::Local;
 use std::{
     collections::HashMap,
     convert::Infallible,
@@ -40,7 +41,9 @@ pub fn subscribe() -> impl Stream<Item = Result<Event, Infallible>> {
 
     ReceiverStream::new(rx).map(|msg| {
         Ok(match msg {
-            SseMessage::Heartbeat => Event::default().event("heartbeat").data(""),
+            SseMessage::Heartbeat => Event::default()
+                .event("heartbeat")
+                .data(Local::now().format("%H:%M:%S").to_string()),
             SseMessage::Quote(data) => Event::default().event("quote").data(data),
         })
     })

@@ -7,6 +7,7 @@ const HEARTBEAT_TIMEOUT = 15000;
 
 export function useServerEvents() {
   const setConnected = useAppStore((s) => s.setConnected);
+  const setServerTime = useAppStore((s) => s.setServerTime);
 
   useEffect(() => {
     let es: EventSource | null = null;
@@ -33,8 +34,9 @@ export function useServerEvents() {
         resetHeartbeat();
       };
 
-      es.addEventListener('heartbeat', () => {
+      es.addEventListener('heartbeat', (e: MessageEvent) => {
         resetHeartbeat();
+        setServerTime(e.data);
       });
 
       es.onerror = () => {
@@ -53,5 +55,5 @@ export function useServerEvents() {
       clearTimeout(heartbeatTimeout);
       es?.close();
     };
-  }, [setConnected]);
+  }, [setConnected, setServerTime]);
 }
