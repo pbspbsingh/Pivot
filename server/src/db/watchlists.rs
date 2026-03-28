@@ -1,6 +1,14 @@
 use anyhow::Result;
 
-use crate::{db::pool, models::{Stock, Watchlist}};
+use crate::{
+    db::pool,
+    models::{Stock, Watchlist},
+};
+
+pub struct NewStock {
+    pub symbol: String,
+    pub exchange: String,
+}
 
 pub async fn list() -> Result<Vec<Watchlist>> {
     let rows = sqlx::query_as!(
@@ -57,7 +65,7 @@ pub async fn list_stocks(watchlist_id: i64) -> Result<Vec<Stock>> {
     let rows = sqlx::query_as!(
         Stock,
         r#"
-        SELECT s.symbol as "symbol!", s.sector, s.industry, s.ep_score, s.vcp_score, s.score_updated_at
+        SELECT s.symbol as "symbol!", s.exchange as "exchange!", s.sector, s.industry, s.ep_score, s.vcp_score, s.score_updated_at
         FROM watchlist_stocks ws
         JOIN stocks s ON s.symbol = ws.symbol
         WHERE ws.watchlist_id = ? AND ws.deleted_at IS NULL
@@ -70,21 +78,52 @@ pub async fn list_stocks(watchlist_id: i64) -> Result<Vec<Stock>> {
     Ok(rows)
 }
 
-pub async fn add_stocks(watchlist_id: i64, symbols: &[String]) -> Result<()> {
+/// Returns exchange names for symbols that already exist in the stocks table.
+pub async fn find_exchanges(
+    symbols: &[String],
+) -> Result<std::collections::HashMap<String, String>> {
+    if symbols.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+
+    // sqlx doesn't support dynamic IN lists with macros, so build it manually.
+    let placeholders = symbols.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let query = format!("SELECT symbol, exchange FROM stocks WHERE symbol IN ({placeholders})");
+    let mut q = sqlx::query(&query);
+    for sym in symbols {
+        q = q.bind(sym);
+    }
+
+    let rows = q.fetch_all(pool()).await?;
+    let map = rows
+        .into_iter()
+        .map(|r| {
+            use sqlx::Row;
+            (r.get::<String, _>("symbol"), r.get::<String, _>("exchange"))
+        })
+        .collect();
+    Ok(map)
+}
+
+pub async fn add_stocks(watchlist_id: i64, stocks: &[NewStock]) -> Result<()> {
     let mut tx = pool().begin().await?;
 
-    for symbol in symbols {
-        let symbol = symbol.trim().to_uppercase();
-        sqlx::query!("INSERT OR IGNORE INTO stocks (symbol) VALUES (?)", symbol)
-            .execute(&mut *tx)
-            .await?;
+    for stock in stocks {
+        sqlx::query!(
+            "INSERT INTO stocks (symbol, exchange) VALUES (?, ?)
+             ON CONFLICT (symbol) DO NOTHING",
+            stock.symbol,
+            stock.exchange
+        )
+        .execute(&mut *tx)
+        .await?;
 
         sqlx::query!(
             "INSERT INTO watchlist_stocks (watchlist_id, symbol)
              VALUES (?, ?)
              ON CONFLICT (watchlist_id, symbol) DO UPDATE SET deleted_at = NULL",
             watchlist_id,
-            symbol
+            stock.symbol
         )
         .execute(&mut *tx)
         .await?;
