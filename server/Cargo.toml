@@ -8,6 +8,7 @@ edition = "2024"
 axum = "0.8"
 tower-http = { version = "0.6", features = ["cors"] }
 tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 
 # database
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "macros"] }

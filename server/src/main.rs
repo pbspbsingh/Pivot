@@ -2,6 +2,7 @@ mod api;
 mod config;
 mod db;
 mod models;
+mod sse;
 
 use anyhow::Result;
 use config::CONFIG;
@@ -17,6 +18,7 @@ async fn main() -> Result<()> {
         .init();
 
     db::init(&CONFIG.database.path).await?;
+    sse::init();
 
     let addr = format!("0.0.0.0:{}", CONFIG.server.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;

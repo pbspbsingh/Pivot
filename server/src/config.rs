@@ -26,7 +26,6 @@ impl Config {
     fn load(path: &str) -> Result<Self> {
         let contents = fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file: {path}"))?;
-        toml::from_str(&contents)
-            .with_context(|| format!("Failed to parse config file: {path}"))
+        toml::from_str(&contents).with_context(|| format!("Failed to parse config file: {path}"))
     }
 }
