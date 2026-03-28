@@ -3,6 +3,7 @@ import { useAppStore } from '../store';
 
 const MIN_RETRY = 1000;
 const MAX_RETRY = 30000;
+const HEARTBEAT_TIMEOUT = 15000;
 
 export function useServerEvents() {
   const setConnected = useAppStore((s) => s.setConnected);
@@ -11,6 +12,17 @@ export function useServerEvents() {
     let es: EventSource | null = null;
     let retryDelay = MIN_RETRY;
     let retryTimeout: ReturnType<typeof setTimeout>;
+    let heartbeatTimeout: ReturnType<typeof setTimeout>;
+
+    function resetHeartbeat() {
+      clearTimeout(heartbeatTimeout);
+      heartbeatTimeout = setTimeout(() => {
+        setConnected(false);
+        es?.close();
+        retryTimeout = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, MAX_RETRY);
+      }, HEARTBEAT_TIMEOUT);
+    }
 
     function connect() {
       es = new EventSource('/api/events');
@@ -18,9 +30,15 @@ export function useServerEvents() {
       es.onopen = () => {
         setConnected(true);
         retryDelay = MIN_RETRY;
+        resetHeartbeat();
       };
 
+      es.addEventListener('heartbeat', () => {
+        resetHeartbeat();
+      });
+
       es.onerror = () => {
+        clearTimeout(heartbeatTimeout);
         setConnected(false);
         es?.close();
         retryTimeout = setTimeout(connect, retryDelay);
@@ -32,6 +50,7 @@ export function useServerEvents() {
 
     return () => {
       clearTimeout(retryTimeout);
+      clearTimeout(heartbeatTimeout);
       es?.close();
     };
   }, [setConnected]);
