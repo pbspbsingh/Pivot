@@ -9,11 +9,13 @@ use crate::{
 #[derive(Deserialize)]
 pub struct CreateBody {
     pub name: String,
+    pub emoji: String,
 }
 
 #[derive(Deserialize)]
 pub struct RenameBody {
     pub name: String,
+    pub emoji: String,
 }
 
 #[derive(Deserialize)]
@@ -36,7 +38,7 @@ pub async fn create(Json(body): Json<CreateBody>) -> ApiResult<impl axum::respon
     if body.name.trim().is_empty() {
         return Err(ApiError::BadRequest("Name cannot be empty".into()));
     }
-    let watchlist = db::watchlists::create(body.name.trim()).await?;
+    let watchlist = db::watchlists::create(body.name.trim(), &body.emoji).await?;
     tracing::info!(id = watchlist.id, name = %watchlist.name, "Watchlist created");
     Ok((StatusCode::CREATED, Json(watchlist)))
 }
@@ -56,7 +58,7 @@ pub async fn rename(
             "Cannot rename the default watchlist".into(),
         ));
     }
-    let updated = db::watchlists::rename(id, body.name.trim()).await?;
+    let updated = db::watchlists::rename(id, body.name.trim(), &body.emoji).await?;
     tracing::info!(id, old_name = %watchlist.name, new_name = %updated.name, "Watchlist renamed");
     Ok(Json(updated))
 }

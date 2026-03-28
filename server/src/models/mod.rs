@@ -7,6 +7,7 @@ pub struct Watchlist {
     pub id: i64,
     pub name: String,
     pub is_default: bool,
+    pub emoji: String,
 }
 
 #[derive(Debug, Serialize, FromRow)]

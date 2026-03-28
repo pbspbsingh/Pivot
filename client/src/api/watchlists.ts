@@ -3,8 +3,9 @@ import type { Stock, Watchlist } from '../types';
 
 export const watchlistApi = {
   list: () => api.get<Watchlist[]>('/watchlists'),
-  create: (name: string) => api.post<Watchlist>('/watchlists', { name }),
-  rename: (id: number, name: string) => api.patch<Watchlist>(`/watchlists/${id}`, { name }),
+  create: (name: string, emoji: string) => api.post<Watchlist>('/watchlists', { name, emoji }),
+  rename: (id: number, name: string, emoji: string) =>
+    api.patch<Watchlist>(`/watchlists/${id}`, { name, emoji }),
   delete: (id: number) => api.delete<void>(`/watchlists/${id}`),
   listStocks: (id: number) => api.get<Stock[]>(`/watchlists/${id}/stocks`),
   addStocks: (id: number, symbols: string[]) =>

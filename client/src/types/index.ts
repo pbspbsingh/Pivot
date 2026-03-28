@@ -2,6 +2,7 @@ export interface Watchlist {
   id: number;
   name: string;
   is_default: boolean;
+  emoji: string;
 }
 
 export interface Stock {

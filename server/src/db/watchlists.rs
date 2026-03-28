@@ -13,7 +13,7 @@ pub struct NewStock {
 pub async fn list() -> Result<Vec<Watchlist>> {
     let rows = sqlx::query_as!(
         Watchlist,
-        r#"SELECT id, name, is_default FROM watchlists ORDER BY is_default DESC, name ASC"#
+        r#"SELECT id, name, is_default, emoji FROM watchlists ORDER BY is_default DESC, created_at ASC"#
     )
     .fetch_all(pool())
     .await?;
@@ -23,7 +23,7 @@ pub async fn list() -> Result<Vec<Watchlist>> {
 pub async fn get(id: i64) -> Result<Option<Watchlist>> {
     let row = sqlx::query_as!(
         Watchlist,
-        r#"SELECT id, name, is_default FROM watchlists WHERE id = ?"#,
+        r#"SELECT id, name, is_default, emoji FROM watchlists WHERE id = ?"#,
         id
     )
     .fetch_optional(pool())
@@ -31,22 +31,24 @@ pub async fn get(id: i64) -> Result<Option<Watchlist>> {
     Ok(row)
 }
 
-pub async fn create(name: &str) -> Result<Watchlist> {
+pub async fn create(name: &str, emoji: &str) -> Result<Watchlist> {
     let row = sqlx::query_as!(
         Watchlist,
-        r#"INSERT INTO watchlists (name) VALUES (?) RETURNING id, name, is_default"#,
-        name
+        r#"INSERT INTO watchlists (name, emoji) VALUES (?, ?) RETURNING id, name, is_default, emoji"#,
+        name,
+        emoji
     )
     .fetch_one(pool())
     .await?;
     Ok(row)
 }
 
-pub async fn rename(id: i64, name: &str) -> Result<Watchlist> {
+pub async fn rename(id: i64, name: &str, emoji: &str) -> Result<Watchlist> {
     let row = sqlx::query_as!(
         Watchlist,
-        r#"UPDATE watchlists SET name = ? WHERE id = ? RETURNING id, name, is_default"#,
+        r#"UPDATE watchlists SET name = ?, emoji = ? WHERE id = ? RETURNING id, name, is_default, emoji"#,
         name,
+        emoji,
         id
     )
     .fetch_one(pool())

@@ -1,20 +1,93 @@
 import { create } from 'zustand';
+import type { Watchlist } from '../types';
 
 type TabOrientation = 'vertical' | 'horizontal';
 
 interface AppState {
+  // SSE connection
   connected: boolean;
-  tabOrientation: TabOrientation;
   setConnected: (connected: boolean) => void;
+
+  // UI prefs
+  tabOrientation: TabOrientation;
   setTabOrientation: (orientation: TabOrientation) => void;
+
+  // Watchlists — fetched by Layout (always mounted), updated by Home on CRUD
+  watchlists: Watchlist[];
+  setWatchlists: (watchlists: Watchlist[]) => void;
+  addWatchlist: (watchlist: Watchlist) => void;
+  updateWatchlist: (watchlist: Watchlist) => void;
+  removeWatchlist: (id: number) => void;
+
+  // Stock symbols per watchlist — for nav display only (no scores etc.)
+  // Only populated for watchlists whose stocks have been fetched.
+  // Mutations are no-ops if the watchlist isn't loaded yet.
+  stocksByWatchlist: Record<number, string[]>;
+  setWatchlistStocks: (watchlistId: number, symbols: string[]) => void;
+  addWatchlistStocks: (watchlistId: number, symbols: string[]) => void;
+  removeWatchlistStock: (watchlistId: number, symbol: string) => void;
+
+  // Nav expand state — persisted to localStorage
+  expandedWatchlistIds: Record<number, boolean>;
+  toggleWatchlistExpanded: (id: number) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
   connected: false,
-  tabOrientation: (localStorage.getItem('tabOrientation') as TabOrientation) ?? 'horizontal',
   setConnected: (connected) => set({ connected }),
+
+  tabOrientation: (localStorage.getItem('tabOrientation') as TabOrientation) ?? 'horizontal',
   setTabOrientation: (tabOrientation) => {
     localStorage.setItem('tabOrientation', tabOrientation);
     set({ tabOrientation });
   },
+
+  watchlists: [],
+  setWatchlists: (watchlists) => set({ watchlists }),
+  addWatchlist: (watchlist) => set((s) => ({ watchlists: [...s.watchlists, watchlist] })),
+  updateWatchlist: (watchlist) =>
+    set((s) => ({
+      watchlists: s.watchlists.map((w) => (w.id === watchlist.id ? watchlist : w)),
+    })),
+  removeWatchlist: (id) =>
+    set((s) => ({
+      watchlists: s.watchlists.filter((w) => w.id !== id),
+      stocksByWatchlist: Object.fromEntries(
+        Object.entries(s.stocksByWatchlist).filter(([k]) => Number(k) !== id),
+      ),
+    })),
+
+  stocksByWatchlist: {},
+  setWatchlistStocks: (watchlistId, symbols) =>
+    set((s) => ({ stocksByWatchlist: { ...s.stocksByWatchlist, [watchlistId]: symbols } })),
+  addWatchlistStocks: (watchlistId, symbols) =>
+    set((s) => {
+      const current = s.stocksByWatchlist[watchlistId];
+      if (!current) return s;
+      return {
+        stocksByWatchlist: {
+          ...s.stocksByWatchlist,
+          [watchlistId]: [...new Set([...current, ...symbols])],
+        },
+      };
+    }),
+  removeWatchlistStock: (watchlistId, symbol) =>
+    set((s) => {
+      const current = s.stocksByWatchlist[watchlistId];
+      if (!current) return s;
+      return {
+        stocksByWatchlist: {
+          ...s.stocksByWatchlist,
+          [watchlistId]: current.filter((sym) => sym !== symbol),
+        },
+      };
+    }),
+
+  expandedWatchlistIds: JSON.parse(localStorage.getItem('watchlistExpanded') ?? '{}'),
+  toggleWatchlistExpanded: (id) =>
+    set((s) => {
+      const next = { ...s.expandedWatchlistIds, [id]: !s.expandedWatchlistIds[id] };
+      localStorage.setItem('watchlistExpanded', JSON.stringify(next));
+      return { expandedWatchlistIds: next };
+    }),
 }));

@@ -11,6 +11,7 @@ import {
 } from '@mantine/core';
 import { IconRefresh, IconTrash, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 import { watchlistApi } from '../../api/watchlists';
+import { useAppStore } from '../../store';
 import type { Stock, Watchlist } from '../../types';
 import { notifyError } from '../../utils/notify';
 
@@ -43,6 +44,10 @@ interface Props {
 }
 
 export function WatchlistPanel({ watchlist }: Props) {
+  const setWatchlistStocks = useAppStore((s) => s.setWatchlistStocks);
+  const addWatchlistStocks = useAppStore((s) => s.addWatchlistStocks);
+  const removeWatchlistStock = useAppStore((s) => s.removeWatchlistStock);
+
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [deletedSymbols, setDeletedSymbols] = useState<Set<string>>(new Set());
   const [tickerInput, setTickerInput] = useState('');
@@ -57,9 +62,13 @@ export function WatchlistPanel({ watchlist }: Props) {
       .then((s) => {
         setStocks(s);
         setDeletedSymbols(new Set());
+        setWatchlistStocks(
+          watchlist.id,
+          s.map((stock) => stock.symbol),
+        );
       })
       .catch((e: Error) => notifyError(e.message));
-  }, [watchlist.id]);
+  }, [watchlist.id, setWatchlistStocks]);
 
   function toggleSort(key: SortKey) {
     if (sortBy === key) {
@@ -111,12 +120,14 @@ export function WatchlistPanel({ watchlist }: Props) {
       if (added.length > 0) {
         const updated = await watchlistApi.listStocks(watchlist.id);
         setStocks(updated);
+        setWatchlistStocks(
+          watchlist.id,
+          updated.map((s) => s.symbol),
+        );
+        setTickerInput('');
       }
       if (failed.length > 0) {
         notifyError(`Exchange not found for: ${failed.join(', ')}`);
-      }
-      if (added.length > 0) {
-        setTickerInput('');
       }
     } catch (e) {
       notifyError((e as Error).message);
@@ -127,6 +138,7 @@ export function WatchlistPanel({ watchlist }: Props) {
     try {
       await watchlistApi.deleteStock(watchlist.id, symbol);
       setDeletedSymbols((prev) => new Set([...prev, symbol]));
+      removeWatchlistStock(watchlist.id, symbol);
     } catch (e) {
       notifyError((e as Error).message);
     }
@@ -140,6 +152,7 @@ export function WatchlistPanel({ watchlist }: Props) {
         next.delete(symbol);
         return next;
       });
+      addWatchlistStocks(watchlist.id, [symbol]);
     } catch (e) {
       notifyError((e as Error).message);
     }

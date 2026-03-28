@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActionIcon,
   Button,
@@ -18,30 +18,42 @@ import type { Watchlist } from '../../types';
 import { notifyError } from '../../utils/notify';
 import { WatchlistPanel } from './WatchlistPanel';
 
+const DEFAULT_ICON = '📋';
+
+// Extracts the first emoji grapheme cluster from a string.
+// Returns empty string if no emoji is found (rejects plain ASCII input).
+function extractEmoji(input: string): string {
+  if (!input) return '';
+  const segments = [...new Intl.Segmenter().segment(input)];
+  const found = segments.find(({ segment }) => /[^\u0020-\u007E]/.test(segment));
+  return found?.segment ?? '';
+}
+
 export function Home() {
   const tabOrientation = useAppStore((s) => s.tabOrientation);
-  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
+  const watchlists = useAppStore((s) => s.watchlists);
+  const addWatchlist = useAppStore((s) => s.addWatchlist);
+  const updateWatchlist = useAppStore((s) => s.updateWatchlist);
+  const removeWatchlist = useAppStore((s) => s.removeWatchlist);
+
+  // null means "not yet explicitly chosen" — defaults to first watchlist.
   const [activeId, setActiveId] = useState<string | null>(null);
+  const resolvedActiveId =
+    activeId !== null ? activeId : watchlists[0] ? String(watchlists[0].id) : null;
+
   const [targetWatchlist, setTargetWatchlist] = useState<Watchlist | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [nameInput, setNameInput] = useState('');
+  const [iconInput, setIconInput] = useState(DEFAULT_ICON);
   const [renameOpened, { open: openRename, close: closeRename }] = useDisclosure(false);
   const [createOpened, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    watchlistApi.list()
-      .then((data) => {
-        setWatchlists(data);
-        if (data.length > 0) setActiveId(String(data[0].id));
-      })
-      .catch((e: Error) => notifyError(e.message));
-  }, []);
-
   function onContextMenuRename(w: Watchlist) {
     setTargetWatchlist(w);
     setNameInput(w.name);
+    setIconInput(w.emoji);
     openRename();
   }
 
@@ -54,8 +66,8 @@ export function Home() {
     const name = nameInput.trim();
     if (!name) return;
     try {
-      const created = await watchlistApi.create(name);
-      setWatchlists((prev) => [...prev, created]);
+      const created = await watchlistApi.create(name, iconInput || DEFAULT_ICON);
+      addWatchlist(created);
       setActiveId(String(created.id));
       closeCreate();
     } catch (e) {
@@ -67,8 +79,12 @@ export function Home() {
     const name = nameInput.trim();
     if (!name || !targetWatchlist) return;
     try {
-      const updated = await watchlistApi.rename(targetWatchlist.id, name);
-      setWatchlists((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+      const updated = await watchlistApi.rename(
+        targetWatchlist.id,
+        name,
+        iconInput || DEFAULT_ICON,
+      );
+      updateWatchlist(updated);
       closeRename();
     } catch (e) {
       notifyError((e as Error).message);
@@ -79,8 +95,8 @@ export function Home() {
     if (!targetWatchlist) return;
     try {
       await watchlistApi.delete(targetWatchlist.id);
+      removeWatchlist(targetWatchlist.id);
       const remaining = watchlists.filter((w) => w.id !== targetWatchlist.id);
-      setWatchlists(remaining);
       setActiveId(remaining.length > 0 ? String(remaining[0].id) : null);
       closeDelete();
     } catch (e) {
@@ -92,57 +108,83 @@ export function Home() {
     <>
       <Modal opened={createOpened} onClose={closeCreate} title="New Watchlist" size="sm">
         <Stack>
-          <TextInput
-            placeholder="Watchlist name"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.currentTarget.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-            data-autofocus
-          />
+          <Group align="flex-end" gap="xs">
+            <TextInput
+              label="Icon"
+              value={iconInput}
+              onChange={(e) => {
+                const emoji = extractEmoji(e.currentTarget.value);
+                if (emoji) setIconInput(emoji);
+              }}
+              w={64}
+              styles={{ input: { textAlign: 'center' } }}
+              data-autofocus
+            />
+            <TextInput
+              label="Name"
+              placeholder="Watchlist name"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.currentTarget.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+              style={{ flex: 1 }}
+            />
+          </Group>
           <Button onClick={handleCreate}>Create</Button>
         </Stack>
       </Modal>
 
-      <Modal opened={renameOpened} onClose={closeRename} title="Rename Watchlist" size="sm">
+      <Modal opened={renameOpened} onClose={closeRename} title="Edit Watchlist" size="sm">
         <Stack>
-          <TextInput
-            ref={nameInputRef}
-            placeholder="Watchlist name"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.currentTarget.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleRename()}
-            data-autofocus
-          />
-          <Button onClick={handleRename}>Rename</Button>
+          <Group align="flex-end" gap="xs">
+            <TextInput
+              label="Emoji"
+              ref={nameInputRef}
+              value={iconInput}
+              onChange={(e) => {
+                const emoji = extractEmoji(e.currentTarget.value);
+                if (emoji) setIconInput(emoji);
+              }}
+              w={64}
+              styles={{ input: { textAlign: 'center', fontSize: 20 } }}
+              data-autofocus
+            />
+            <TextInput
+              label="Name"
+              placeholder="Watchlist name"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.currentTarget.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+              style={{ flex: 1 }}
+            />
+          </Group>
+          <Button onClick={handleRename}>Save</Button>
         </Stack>
       </Modal>
 
-      <Modal
-        opened={deleteOpened}
-        onClose={closeDelete}
-        title="Delete Watchlist"
-        size="sm"
-      >
+      <Modal opened={deleteOpened} onClose={closeDelete} title="Delete Watchlist" size="sm">
         <Stack>
           <Text>
-            Are you sure you want to delete <strong>{targetWatchlist?.name}</strong>? This cannot be undone.
+            Are you sure you want to delete <strong>{targetWatchlist?.name}</strong>? This cannot
+            be undone.
           </Text>
           <Group justify="flex-end">
-            <Button variant="default" onClick={closeDelete}>Cancel</Button>
-            <Button color="red" onClick={handleDelete}>Delete</Button>
+            <Button variant="default" onClick={closeDelete}>
+              Cancel
+            </Button>
+            <Button color="red" onClick={handleDelete}>
+              Delete
+            </Button>
           </Group>
         </Stack>
       </Modal>
 
       <Tabs
-        value={activeId}
+        value={resolvedActiveId}
         onChange={setActiveId}
         orientation={tabOrientation === 'vertical' ? 'vertical' : 'horizontal'}
         style={{ height: '100%' }}
       >
-        <Tabs.List
-          style={tabOrientation === 'vertical' ? { minWidth: 160 } : undefined}
-        >
+        <Tabs.List style={tabOrientation === 'vertical' ? { minWidth: 160 } : undefined}>
           {watchlists.map((w) => (
             <Menu
               key={w.id}
@@ -160,7 +202,7 @@ export function Home() {
                     setMenuOpenId(w.id);
                   }}
                 >
-                  {w.name}
+                  {w.emoji} {w.name}
                 </Tabs.Tab>
               </Menu.Target>
               <Menu.Dropdown>
@@ -168,7 +210,7 @@ export function Home() {
                   leftSection={<IconPencil size={14} />}
                   onClick={() => onContextMenuRename(w)}
                 >
-                  Rename
+                  Edit
                 </Menu.Item>
                 <Menu.Item
                   leftSection={<IconTrash size={14} />}
@@ -188,12 +230,26 @@ export function Home() {
               leftSection={<IconPlus size={14} />}
               fullWidth
               mt={4}
-              onClick={() => { setNameInput(''); openCreate(); }}
+              onClick={() => {
+                setNameInput('');
+                setIconInput(DEFAULT_ICON);
+                openCreate();
+              }}
             >
               New Watchlist
             </Button>
           ) : (
-            <ActionIcon variant="subtle" color="gray" size="sm" m={4} onClick={() => { setNameInput(''); openCreate(); }}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              m={4}
+              onClick={() => {
+                setNameInput('');
+                setIconInput(DEFAULT_ICON);
+                openCreate();
+              }}
+            >
               <IconPlus size={14} />
             </ActionIcon>
           )}
@@ -201,12 +257,14 @@ export function Home() {
 
         {watchlists.map((w) => (
           <Tabs.Panel key={w.id} value={String(w.id)} pt="xs">
-            {activeId === String(w.id) && <WatchlistPanel watchlist={w} />}
+            {resolvedActiveId === String(w.id) && <WatchlistPanel watchlist={w} />}
           </Tabs.Panel>
         ))}
 
         {watchlists.length === 0 && (
-          <Text c="dimmed" p="md">No watchlists found.</Text>
+          <Text c="dimmed" p="md">
+            No watchlists found.
+          </Text>
         )}
       </Tabs>
     </>

@@ -2,6 +2,7 @@ CREATE TABLE watchlists (
     id         INTEGER  PRIMARY KEY AUTOINCREMENT,
     name       TEXT     NOT NULL UNIQUE,
     is_default BOOLEAN  NOT NULL DEFAULT FALSE,
+    emoji      TEXT     NOT NULL DEFAULT '📋',
     created_at DATETIME NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -23,4 +24,4 @@ CREATE TABLE watchlist_stocks (
     PRIMARY KEY (watchlist_id, symbol)
 );
 
-INSERT INTO watchlists (name, is_default) VALUES ('Episodic Pivot', TRUE);
+INSERT INTO watchlists (name, is_default, emoji) VALUES ('Episodic Pivot', TRUE, '🚀');
