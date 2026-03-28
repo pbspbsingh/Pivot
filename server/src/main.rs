@@ -3,6 +3,7 @@ mod config;
 mod db;
 mod models;
 mod sse;
+mod utils;
 mod yfinance;
 
 use anyhow::Result;

@@ -1,17 +1,11 @@
 use anyhow::{Context, Result};
-use reqwest::Client;
+
 use serde::Deserialize;
-use std::{collections::HashMap, sync::LazyLock};
+use std::collections::HashMap;
+use reqwest::header;
+use crate::utils::CLIENT;
 
 const SEARCH_URL: &str = "https://query2.finance.yahoo.com/v1/finance/search";
-const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-
-static CLIENT: LazyLock<Client> = LazyLock::new(|| {
-    Client::builder()
-        .user_agent(USER_AGENT)
-        .build()
-        .expect("Failed to build HTTP client")
-});
 
 #[derive(Deserialize)]
 struct SearchResponse {
@@ -65,9 +59,9 @@ async fn fetch_exchange(symbol: &str) -> Result<Option<String>> {
             ("newsCount", "0"),
             ("enableFuzzyQuery", "false"),
         ])
-        .header("Accept", "application/json")
-        .header("Accept-Language", "en-US,en;q=0.9")
-        .header("Referer", "https://finance.yahoo.com/")
+        .header(header::ACCEPT, "application/json")
+        .header(header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
+        .header(header::REFERER, "https://finance.yahoo.com/")
         .send()
         .await
         .with_context(|| format!("Failed to reach Yahoo Finance for {symbol}"))?
