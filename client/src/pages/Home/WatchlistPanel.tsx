@@ -16,6 +16,28 @@ import { notifyError } from '../../utils/notify';
 
 type SortKey = 'symbol' | 'sector' | 'industry' | 'score' | 'score_updated_at';
 
+interface SortHeaderProps {
+  label: string;
+  sortKey: SortKey;
+  sortBy: SortKey;
+  sortDir: 'asc' | 'desc';
+  onToggle: (key: SortKey) => void;
+}
+
+function SortHeader({ label, sortKey, sortBy, sortDir, onToggle }: SortHeaderProps) {
+  const active = sortBy === sortKey;
+  return (
+    <UnstyledButton onClick={() => onToggle(sortKey)}>
+      <Group gap={4} wrap="nowrap">
+        <Text size="sm" fw={active ? 700 : 500}>
+          {label}
+        </Text>
+        {active && (sortDir === 'asc' ? <IconArrowUp size={12} /> : <IconArrowDown size={12} />)}
+      </Group>
+    </UnstyledButton>
+  );
+}
+
 interface Props {
   watchlist: Watchlist;
 }
@@ -30,9 +52,12 @@ export function WatchlistPanel({ watchlist }: Props) {
   const scoreLabel = watchlist.is_default ? 'EP Score' : 'VCP Score';
 
   useEffect(() => {
-    setDeletedSymbols(new Set());
-    watchlistApi.listStocks(watchlist.id)
-      .then(setStocks)
+    watchlistApi
+      .listStocks(watchlist.id)
+      .then((s) => {
+        setStocks(s);
+        setDeletedSymbols(new Set());
+      })
       .catch((e: Error) => notifyError(e.message));
   }, [watchlist.id]);
 
@@ -120,28 +145,32 @@ export function WatchlistPanel({ watchlist }: Props) {
     }
   }
 
-  function SortHeader({ label, sortKey }: { label: string; sortKey: SortKey }) {
-    const active = sortBy === sortKey;
-    return (
-      <UnstyledButton onClick={() => toggleSort(sortKey)}>
-        <Group gap={4} wrap="nowrap">
-          <Text size="sm" fw={active ? 700 : 500}>{label}</Text>
-          {active && (sortDir === 'asc' ? <IconArrowUp size={12} /> : <IconArrowDown size={12} />)}
-        </Group>
-      </UnstyledButton>
-    );
-  }
-
   return (
     <Stack gap="sm">
       <Table highlightOnHover striped>
         <Table.Thead>
           <Table.Tr>
-            <Table.Th><SortHeader label="Symbol" sortKey="symbol" /></Table.Th>
-            <Table.Th><SortHeader label="Sector" sortKey="sector" /></Table.Th>
-            <Table.Th><SortHeader label="Industry" sortKey="industry" /></Table.Th>
-            <Table.Th><SortHeader label={scoreLabel} sortKey="score" /></Table.Th>
-            <Table.Th><SortHeader label="Score Updated" sortKey="score_updated_at" /></Table.Th>
+            <Table.Th>
+              <SortHeader label="Symbol" sortKey="symbol" sortBy={sortBy} sortDir={sortDir} onToggle={toggleSort} />
+            </Table.Th>
+            <Table.Th>
+              <SortHeader label="Sector" sortKey="sector" sortBy={sortBy} sortDir={sortDir} onToggle={toggleSort} />
+            </Table.Th>
+            <Table.Th>
+              <SortHeader label="Industry" sortKey="industry" sortBy={sortBy} sortDir={sortDir} onToggle={toggleSort} />
+            </Table.Th>
+            <Table.Th>
+              <SortHeader label={scoreLabel} sortKey="score" sortBy={sortBy} sortDir={sortDir} onToggle={toggleSort} />
+            </Table.Th>
+            <Table.Th>
+              <SortHeader
+                label="Score Updated"
+                sortKey="score_updated_at"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onToggle={toggleSort}
+              />
+            </Table.Th>
             <Table.Th />
           </Table.Tr>
         </Table.Thead>
@@ -158,9 +187,7 @@ export function WatchlistPanel({ watchlist }: Props) {
                 <Table.Td c="dimmed">{stock.industry ?? '—'}</Table.Td>
                 <Table.Td>{getScore(stock) ?? '—'}</Table.Td>
                 <Table.Td c="dimmed">
-                  {stock.score_updated_at
-                    ? new Date(stock.score_updated_at).toLocaleString()
-                    : '—'}
+                  {stock.score_updated_at ? new Date(stock.score_updated_at).toLocaleString() : '—'}
                 </Table.Td>
                 <Table.Td>
                   {isDeleted ? (
@@ -179,7 +206,9 @@ export function WatchlistPanel({ watchlist }: Props) {
           {sortedStocks.length === 0 && (
             <Table.Tr>
               <Table.Td colSpan={6}>
-                <Text c="dimmed" ta="center" py="sm">No stocks in this watchlist.</Text>
+                <Text c="dimmed" ta="center" py="sm">
+                  No stocks in this watchlist.
+                </Text>
               </Table.Td>
             </Table.Tr>
           )}
@@ -187,7 +216,9 @@ export function WatchlistPanel({ watchlist }: Props) {
       </Table>
 
       <Stack gap={4} maw={400}>
-        <Text size="xs" fw={500} c="dimmed">Add Tickers</Text>
+        <Text size="xs" fw={500} c="dimmed">
+          Add Tickers
+        </Text>
         <Textarea
           placeholder={'One per line or comma-separated\ne.g. AAPL, TSLA\nNVDA'}
           value={tickerInput}
@@ -200,7 +231,9 @@ export function WatchlistPanel({ watchlist }: Props) {
           maxRows={6}
         />
         <Group justify="flex-end">
-          <Button size="xs" onClick={handleAddStocks}>Add</Button>
+          <Button size="xs" onClick={handleAddStocks}>
+            Add
+          </Button>
         </Group>
       </Stack>
     </Stack>
