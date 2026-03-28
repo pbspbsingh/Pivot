@@ -1,0 +1,47 @@
+import { ActionIcon, AppShell, Burger, Group, NavLink, Stack } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { Outlet } from 'react-router-dom';
+import { NavLink as RouterNavLink, useNavigate } from 'react-router-dom';
+import { IconHome2, IconSettings } from '@tabler/icons-react';
+import logo from '../../assets/logo.svg';
+
+export function Layout() {
+  const [opened, { toggle }] = useDisclosure();
+  const navigate = useNavigate();
+
+  return (
+    <AppShell
+      header={{ height: 44 }}
+      navbar={{ width: 220, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+      padding="xs"
+    >
+      <AppShell.Header>
+        <Group h="100%" px="md" justify="space-between">
+          <Group>
+            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <RouterNavLink to="/" style={{ display: 'flex', alignItems: 'center' }}><img src={logo} alt="Pivot" height={32} /></RouterNavLink>
+          </Group>
+          <ActionIcon variant="subtle" color="gray" onClick={() => navigate('/settings')}>
+            <IconSettings size={18} />
+          </ActionIcon>
+        </Group>
+      </AppShell.Header>
+
+      <AppShell.Navbar p="xs">
+        <Stack gap={4}>
+          <NavLink
+            component={RouterNavLink}
+            to="/"
+            end
+            label="Home"
+            leftSection={<IconHome2 size={16} />}
+          />
+        </Stack>
+      </AppShell.Navbar>
+
+      <AppShell.Main>
+        <Outlet />
+      </AppShell.Main>
+    </AppShell>
+  );
+}

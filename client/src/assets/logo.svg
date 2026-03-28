@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40" fill="none">
+  <!-- Candlestick bars -->
+  <g stroke="#4dabf7" stroke-width="2" stroke-linecap="round">
+    <!-- Bar 1 - down -->
+    <line x1="18" y1="28" x2="18" y2="14"/>
+    <rect x="16" y="18" width="4" height="7" fill="#fa5252" stroke="#fa5252" rx="1"/>
+
+    <!-- Bar 2 - up -->
+    <line x1="30" y1="26" x2="30" y2="10"/>
+    <rect x="28" y="14" width="4" height="8" fill="#51cf66" stroke="#51cf66" rx="1"/>
+
+    <!-- Bar 3 - down -->
+    <line x1="42" y1="30" x2="42" y2="16"/>
+    <rect x="40" y="20" width="4" height="7" fill="#fa5252" stroke="#fa5252" rx="1"/>
+
+    <!-- Bar 4 - up (pivot point) -->
+    <line x1="54" y1="24" x2="54" y2="8"/>
+    <rect x="52" y="11" width="4" height="9" fill="#51cf66" stroke="#51cf66" rx="1"/>
+  </g>
+
+  <!-- Pivot arrow breakout -->
+  <polyline
+    points="14,26 30,18 42,24 54,14 68,8"
+    stroke="#4dabf7"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+    stroke-dasharray="2 2"
+  />
+  <polyline
+    points="62,5 68,8 65,14"
+    stroke="#4dabf7"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+
+  <!-- Wordmark -->
+  <text
+    x="76"
+    y="27"
+    font-family="'Inter', 'Segoe UI', sans-serif"
+    font-size="18"
+    font-weight="700"
+    fill="#ffffff"
+    letter-spacing="-0.5"
+  >Pivot</text>
+</svg>
