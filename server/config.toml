@@ -1,0 +1,6 @@
+[server]
+port = 8080
+log_level = "info,pivot_server=debug"
+
+[database]
+path = "database.sqlite"
