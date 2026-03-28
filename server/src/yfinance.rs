@@ -1,0 +1,118 @@
+use anyhow::{Context, Result};
+use reqwest::Client;
+use serde::Deserialize;
+use std::{collections::HashMap, sync::LazyLock};
+
+const SEARCH_URL: &str = "https://query2.finance.yahoo.com/v1/finance/search";
+const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+static CLIENT: LazyLock<Client> = LazyLock::new(|| {
+    Client::builder()
+        .user_agent(USER_AGENT)
+        .build()
+        .expect("Failed to build HTTP client")
+});
+
+#[derive(Deserialize)]
+struct SearchResponse {
+    quotes: Vec<SearchQuote>,
+}
+
+#[derive(Deserialize)]
+struct SearchQuote {
+    symbol: String,
+    /// Human-readable exchange name e.g. "NASDAQ", "NYSE"
+    #[serde(rename = "exchDisp")]
+    exch_disp: Option<String>,
+}
+
+/// Fetches exchange names for a batch of symbols by querying each concurrently.
+/// Returns a map of symbol -> exchange name for symbols that were found.
+pub async fn get_exchanges(symbols: &[String]) -> Result<HashMap<String, String>> {
+    if symbols.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let futs: Vec<_> = symbols.iter().map(|sym| fetch_exchange(sym)).collect();
+    let results = futures::future::join_all(futs).await;
+
+    let mut map = HashMap::new();
+    for (sym, res) in symbols.iter().zip(results) {
+        match res {
+            Ok(Some(exch)) => {
+                map.insert(sym.clone(), exch);
+            }
+            Ok(None) => {
+                tracing::debug!("No exchange found for {sym}");
+            }
+            Err(e) => {
+                tracing::warn!("Failed to fetch exchange for {sym}: {e:#}");
+            }
+        }
+    }
+
+    Ok(map)
+}
+
+async fn fetch_exchange(symbol: &str) -> Result<Option<String>> {
+    tracing::debug!("Fetching exchange for {symbol}");
+
+    let body = CLIENT
+        .get(SEARCH_URL)
+        .query(&[
+            ("q", symbol),
+            ("quotesCount", "1"),
+            ("newsCount", "0"),
+            ("enableFuzzyQuery", "false"),
+        ])
+        .header("Accept", "application/json")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .header("Referer", "https://finance.yahoo.com/")
+        .send()
+        .await
+        .with_context(|| format!("Failed to reach Yahoo Finance for {symbol}"))?
+        .text()
+        .await
+        .with_context(|| format!("Failed to read Yahoo Finance response for {symbol}"))?;
+
+    tracing::debug!("Yahoo Finance search response for {symbol}: {body}");
+
+    let response = serde_json::from_str::<SearchResponse>(&body)
+        .with_context(|| format!("Failed to parse Yahoo Finance response for {symbol}: {body}"))?;
+
+    let exch = response
+        .quotes
+        .into_iter()
+        .find(|q| q.symbol.eq_ignore_ascii_case(symbol))
+        .and_then(|q| q.exch_disp);
+
+    Ok(exch)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_get_exchanges() {
+        let symbols = vec![
+            "AAPL".to_string(),
+            "TSLA".to_string(),
+            "INVALID_XYZ".to_string(),
+        ];
+        let result = get_exchanges(&symbols).await;
+
+        match result {
+            Ok(map) => {
+                println!("Exchanges: {map:#?}");
+                assert!(map.contains_key("AAPL"), "AAPL should be found");
+                assert!(map.contains_key("TSLA"), "TSLA should be found");
+                assert!(
+                    !map.contains_key("INVALID_XYZ"),
+                    "INVALID_XYZ should not be found"
+                );
+            }
+            Err(e) => panic!("Request failed: {e:#}"),
+        }
+    }
+}

@@ -73,7 +73,7 @@ export function WatchlistPanel({ watchlist }: Props) {
 
   function parseSymbols(input: string): string[] {
     return input
-      .split(/[\n,]+/)
+      .split(/[\n, ]+/)
       .map((s) => s.trim().toUpperCase())
       .filter((s) => s.length > 0);
   }
@@ -82,10 +82,17 @@ export function WatchlistPanel({ watchlist }: Props) {
     const symbols = parseSymbols(tickerInput);
     if (symbols.length === 0) return;
     try {
-      await watchlistApi.addStocks(watchlist.id, symbols);
-      const updated = await watchlistApi.listStocks(watchlist.id);
-      setStocks(updated);
-      setTickerInput('');
+      const { added, failed } = await watchlistApi.addStocks(watchlist.id, symbols);
+      if (added.length > 0) {
+        const updated = await watchlistApi.listStocks(watchlist.id);
+        setStocks(updated);
+      }
+      if (failed.length > 0) {
+        notifyError(`Exchange not found for: ${failed.join(', ')}`);
+      }
+      if (added.length > 0) {
+        setTickerInput('');
+      }
     } catch (e) {
       notifyError((e as Error).message);
     }

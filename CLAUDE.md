@@ -58,6 +58,7 @@ cargo sqlx database drop && cargo sqlx database create && cargo sqlx migrate run
 - Soft-delete stocks via API immediately; keep row visible with strikethrough until navigation
 - All async API calls wrapped in try/catch; errors shown via `notifyError()` from `src/utils/notify.ts`
 - Ctrl+Enter / Cmd+Enter submits textarea forms
+- Ticker input splits on newlines, commas, and spaces; each token is trimmed and uppercased
 
 ## API Routes
 
