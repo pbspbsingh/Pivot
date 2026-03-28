@@ -84,9 +84,64 @@ async fn fetch_exchange(symbol: &str) -> Result<Option<String>> {
         .quotes
         .into_iter()
         .find(|q| q.symbol.eq_ignore_ascii_case(symbol))
-        .and_then(|q| q.exch_disp);
+        .and_then(|q| q.exch_disp)
+        .map(|e| to_tradingview(&e).to_string());
 
     Ok(exch)
+}
+
+/// Maps a Yahoo Finance `exchDisp` string to a TradingView exchange identifier.
+/// Falls back to the original value if no mapping is known.
+fn to_tradingview(exch: &str) -> &str {
+    // Match is case-sensitive against the known Yahoo Finance values.
+    // Yahoo returns display names like "NASDAQ", "NasdaqGS", "NYSE American", etc.
+    match exch {
+        // United States
+        "NASDAQ" | "NasdaqGS" | "NasdaqGM" | "NasdaqCM" => "NASDAQ",
+        "NYSE" | "New York Stock Exchange" => "NYSE",
+        "NYSE American" | "American Stock Exchange" => "AMEX",
+        "NYSE Arca" => "NYSEARCA",
+        "Cboe BZX" | "BATS" => "CBOE",
+        "OTC Bulletin Board" | "Other OTC" | "Pink Sheets" | "OTC Markets" => "OTC",
+        // Canada
+        "Toronto" | "TSX" => "TSX",
+        "TSX Venture" => "TSXV",
+        "Canadian Securities Exchange" => "CSE",
+        // United Kingdom
+        "London" => "LSE",
+        // Europe
+        "XETRA" | "Frankfurt" => "XETR",
+        "Euronext Paris" | "Paris" => "EURONEXT",
+        "Amsterdam" | "Brussels" | "Lisbon" => "EURONEXT",
+        "Milan" | "Borsa Italiana" => "MIL",
+        "Madrid" => "BME",
+        "Stockholm" | "Nasdaq Stockholm" => "OMX",
+        "Oslo" => "OSL",
+        "Copenhagen" | "Nasdaq Copenhagen" => "CPH",
+        "Helsinki" | "Nasdaq Helsinki" => "HEL",
+        "Zurich" | "Swiss Exchange" | "SIX Swiss Exchange" => "SIX",
+        "Vienna" => "WBAG",
+        "Warsaw" => "GPW",
+        // Asia / Pacific
+        "Tokyo" => "TSE",
+        "Hong Kong" => "HKEX",
+        "Shanghai" => "SSE",
+        "Shenzhen" => "SZSE",
+        "Korea Exchange" | "Seoul" => "KRX",
+        "Australian" | "ASX" => "ASX",
+        "Singapore" | "SGX" => "SGX",
+        "Bombay" | "BSE India" => "BSE",
+        "National Stock Exchange India" => "NSE",
+        "Taiwan" | "TWSE" => "TWSE",
+        "New Zealand" => "NZX",
+        // Other
+        "Tel Aviv" => "TASE",
+        "Johannesburg" => "JSE",
+        "Brazil" | "Bovespa" => "BMFBOVESPA",
+        "Mexico" => "BMV",
+        // Unknown — pass through as-is
+        other => other,
+    }
 }
 
 #[cfg(test)]

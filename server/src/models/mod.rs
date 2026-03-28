@@ -12,6 +12,7 @@ pub struct Watchlist {
 #[derive(Debug, Serialize, FromRow)]
 pub struct Stock {
     pub symbol: String,
+    pub exchange: String,
     pub sector: Option<String>,
     pub industry: Option<String>,
     pub ep_score: Option<f64>,

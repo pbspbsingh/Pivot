@@ -3,13 +3,13 @@ use std::{
     collections::HashMap,
     convert::Infallible,
     sync::{
-        atomic::{AtomicU64, Ordering},
         LazyLock, Mutex,
+        atomic::{AtomicU64, Ordering},
     },
     time::Duration,
 };
 use tokio::sync::mpsc;
-use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
+use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};
 
 const CHANNEL_BUFFER: usize = 128;
 

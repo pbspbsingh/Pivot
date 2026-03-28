@@ -6,6 +6,7 @@ export interface Watchlist {
 
 export interface Stock {
   symbol: string;
+  exchange: string;
   sector: string | null;
   industry: string | null;
   ep_score: number | null;

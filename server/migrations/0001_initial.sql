@@ -7,6 +7,7 @@ CREATE TABLE watchlists (
 
 CREATE TABLE stocks (
     symbol           TEXT     PRIMARY KEY,
+    exchange         TEXT     NOT NULL,
     sector           TEXT,
     industry         TEXT,
     ep_score         REAL,
