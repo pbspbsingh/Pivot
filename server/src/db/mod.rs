@@ -1,3 +1,5 @@
+pub mod watchlists;
+
 use anyhow::Result;
 use sqlx::{
     SqlitePool,

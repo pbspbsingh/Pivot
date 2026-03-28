@@ -1,16 +1,20 @@
 import { create } from 'zustand';
-import type { Watchlist } from '../types';
+
+type TabOrientation = 'vertical' | 'horizontal';
 
 interface AppState {
-  watchlists: Watchlist[];
   connected: boolean;
-  setWatchlists: (watchlists: Watchlist[]) => void;
+  tabOrientation: TabOrientation;
   setConnected: (connected: boolean) => void;
+  setTabOrientation: (orientation: TabOrientation) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  watchlists: [],
   connected: false,
-  setWatchlists: (watchlists) => set({ watchlists }),
+  tabOrientation: (localStorage.getItem('tabOrientation') as TabOrientation) ?? 'horizontal',
   setConnected: (connected) => set({ connected }),
+  setTabOrientation: (tabOrientation) => {
+    localStorage.setItem('tabOrientation', tabOrientation);
+    set({ tabOrientation });
+  },
 }));
