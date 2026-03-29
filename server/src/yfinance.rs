@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 
+use crate::utils::CLIENT;
+use reqwest::header;
 use serde::Deserialize;
 use std::collections::HashMap;
-use reqwest::header;
-use crate::utils::CLIENT;
 
 const SEARCH_URL: &str = "https://query2.finance.yahoo.com/v1/finance/search";
 

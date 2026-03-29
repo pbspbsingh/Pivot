@@ -4,3 +4,8 @@ log_level = "info,pivot_server=debug"
 
 [database]
 path = "database.sqlite"
+
+[chrome]
+binary = "/usr/bin/google-chrome"
+user_data_dir = "/home/pbs/Workspace/ChromeData"
+launch_if_needed = true

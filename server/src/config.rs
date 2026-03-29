@@ -9,6 +9,14 @@ pub static CONFIG: LazyLock<Config> =
 pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
+    pub chrome: ChromeConfig,
+}
+
+#[derive(Deserialize)]
+pub struct ChromeConfig {
+    pub binary: String,
+    pub user_data_dir: Option<String>,
+    pub launch_if_needed: bool,
 }
 
 #[derive(Deserialize)]

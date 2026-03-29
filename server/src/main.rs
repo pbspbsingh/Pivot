@@ -2,6 +2,7 @@ mod api;
 mod config;
 mod db;
 mod models;
+mod pipeline;
 mod sse;
 mod utils;
 mod yfinance;

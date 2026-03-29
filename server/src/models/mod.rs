@@ -1,3 +1,5 @@
+pub mod pipeline;
+
 use chrono::NaiveDateTime;
 use serde::Serialize;
 use sqlx::FromRow;
