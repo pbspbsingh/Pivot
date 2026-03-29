@@ -55,8 +55,8 @@ pub struct ForecastData {
 
 #[derive(Debug)]
 pub struct EarningsRelease {
-    day: NaiveDate,
-    earnings_release: String,
+    pub day: NaiveDate,
+    pub earnings_release: String,
 }
 
 #[derive(Debug)]
