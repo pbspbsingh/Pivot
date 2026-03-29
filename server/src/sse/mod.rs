@@ -30,7 +30,6 @@ pub struct JobEvent {
 #[derive(Clone)]
 pub enum SseMessage {
     Heartbeat,
-    Quote(String),
     Job(JobEvent),
 }
 
@@ -58,7 +57,6 @@ pub fn subscribe() -> impl Stream<Item = Result<Event, Infallible>> {
             SseMessage::Heartbeat => Event::default()
                 .event("heartbeat")
                 .data(Local::now().format("%H:%M:%S").to_string()),
-            SseMessage::Quote(data) => Event::default().event("quote").data(data),
             SseMessage::Job(ev) => Event::default()
                 .event("job")
                 .data(serde_json::to_string(&ev).unwrap_or_default()),

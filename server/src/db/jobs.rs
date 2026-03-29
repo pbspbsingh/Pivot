@@ -17,6 +17,7 @@ pub struct AnalysisJob {
     pub status: JobStatus,
     pub current_step: PipelineStep,
     pub error: Option<String>,
+    pub retry_count: i64,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -54,11 +55,14 @@ pub async fn enqueue(symbol: &str, watchlist_id: i64) -> Result<AnalysisJob> {
         let job = sqlx::query_as!(
             AnalysisJob,
             r#"UPDATE analysis_jobs
-               SET status = 'pending', current_step = 'queued', error = NULL, updated_at = datetime('now')
+               SET status = ?, current_step = ?, error = NULL,
+                   retry_count = retry_count + 1, updated_at = datetime('now')
                WHERE id = ?
                RETURNING id as "id!", symbol as "symbol!", watchlist_id as "watchlist_id!",
                          status as "status!: JobStatus", current_step as "current_step!: PipelineStep",
-                         error, created_at as "created_at!", updated_at as "updated_at!""#,
+                         error, retry_count as "retry_count!", created_at as "created_at!", updated_at as "updated_at!""#,
+            JobStatus::Pending,
+            PipelineStep::Queued,
             job.id,
         )
         .fetch_one(pool())
@@ -71,7 +75,7 @@ pub async fn enqueue(symbol: &str, watchlist_id: i64) -> Result<AnalysisJob> {
            VALUES (?, ?)
            RETURNING id as "id!", symbol as "symbol!", watchlist_id as "watchlist_id!",
                      status as "status!: JobStatus", current_step as "current_step!: PipelineStep",
-                     error, created_at as "created_at!", updated_at as "updated_at!""#,
+                     error, retry_count as "retry_count!", created_at as "created_at!", updated_at as "updated_at!""#,
         symbol,
         watchlist_id,
     )
@@ -85,7 +89,7 @@ pub async fn get_latest(symbol: &str, watchlist_id: i64) -> Result<Option<Analys
         AnalysisJob,
         r#"SELECT id, symbol, watchlist_id,
                   status as "status: JobStatus", current_step as "current_step: PipelineStep",
-                  error, created_at, updated_at
+                  error, retry_count, created_at, updated_at
            FROM analysis_jobs
            WHERE symbol = ? AND watchlist_id = ?
            ORDER BY id DESC LIMIT 1"#,
@@ -102,12 +106,13 @@ pub async fn get_failed(symbol: &str, watchlist_id: i64) -> Result<Option<Analys
         AnalysisJob,
         r#"SELECT id, symbol, watchlist_id,
                   status as "status: JobStatus", current_step as "current_step: PipelineStep",
-                  error, created_at, updated_at
+                  error, retry_count, created_at, updated_at
            FROM analysis_jobs
-           WHERE symbol = ? AND watchlist_id = ? AND status = 'failed'
+           WHERE symbol = ? AND watchlist_id = ? AND status = ?
            ORDER BY id DESC LIMIT 1"#,
         symbol,
         watchlist_id,
+        JobStatus::Failed,
     )
     .fetch_optional(pool())
     .await?;
@@ -119,12 +124,14 @@ pub async fn get_active(symbol: &str, watchlist_id: i64) -> Result<Option<Analys
         AnalysisJob,
         r#"SELECT id, symbol, watchlist_id,
                   status as "status: JobStatus", current_step as "current_step: PipelineStep",
-                  error, created_at, updated_at
+                  error, retry_count, created_at, updated_at
            FROM analysis_jobs
-           WHERE symbol = ? AND watchlist_id = ? AND status IN ('pending', 'running')
+           WHERE symbol = ? AND watchlist_id = ? AND status IN (?, ?)
            ORDER BY id DESC LIMIT 1"#,
         symbol,
         watchlist_id,
+        JobStatus::Pending,
+        JobStatus::Running,
     )
     .fetch_optional(pool())
     .await?;
@@ -136,8 +143,9 @@ pub async fn get_pending() -> Result<Option<AnalysisJob>> {
         AnalysisJob,
         r#"SELECT id, symbol, watchlist_id,
                   status as "status: JobStatus", current_step as "current_step: PipelineStep",
-                  error, created_at, updated_at
-           FROM analysis_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1"#,
+                  error, retry_count, created_at, updated_at
+           FROM analysis_jobs WHERE status = ? ORDER BY id ASC LIMIT 1"#,
+        JobStatus::Pending,
     )
     .fetch_optional(pool())
     .await?;
@@ -147,8 +155,10 @@ pub async fn get_pending() -> Result<Option<AnalysisJob>> {
 /// On server startup, reset any jobs left in `running` back to `pending`.
 pub async fn reset_running_to_pending() -> Result<()> {
     sqlx::query!(
-        "UPDATE analysis_jobs SET status = 'pending', current_step = 'queued', updated_at = datetime('now')
-         WHERE status = 'running'"
+        "UPDATE analysis_jobs SET status = ?, current_step = ?, updated_at = datetime('now') WHERE status = ?",
+        JobStatus::Pending,
+        PipelineStep::Queued,
+        JobStatus::Running,
     )
     .execute(pool())
     .await?;
@@ -179,7 +189,9 @@ pub async fn set_step(job_id: i64, step: PipelineStep) -> Result<()> {
 
 pub async fn complete(job_id: i64) -> Result<()> {
     sqlx::query!(
-        "UPDATE analysis_jobs SET status = 'completed', current_step = 'done', updated_at = datetime('now') WHERE id = ?",
+        "UPDATE analysis_jobs SET status = ?, current_step = ?, updated_at = datetime('now') WHERE id = ?",
+        JobStatus::Completed,
+        PipelineStep::Done,
         job_id,
     )
     .execute(pool())
@@ -189,7 +201,8 @@ pub async fn complete(job_id: i64) -> Result<()> {
 
 pub async fn fail(job_id: i64, error: &str) -> Result<()> {
     sqlx::query!(
-        "UPDATE analysis_jobs SET status = 'failed', error = ?, updated_at = datetime('now') WHERE id = ?",
+        "UPDATE analysis_jobs SET status = ?, error = ?, updated_at = datetime('now') WHERE id = ?",
+        JobStatus::Failed,
         error,
         job_id,
     )

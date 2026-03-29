@@ -5,6 +5,7 @@ CREATE TABLE analysis_jobs (
     status       TEXT     NOT NULL DEFAULT 'pending',
     current_step TEXT     NOT NULL DEFAULT 'queued',
     error        TEXT,
+    retry_count  INTEGER  NOT NULL DEFAULT 0,
     created_at   DATETIME NOT NULL DEFAULT (datetime('now')),
     updated_at   DATETIME NOT NULL DEFAULT (datetime('now'))
 );
