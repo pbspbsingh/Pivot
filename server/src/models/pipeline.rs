@@ -18,12 +18,10 @@ pub struct EarningsEntry {
     pub periodicity: Periodicity,
     pub eps_reported: Option<f64>,
     pub eps_estimate: Option<f64>,
-    /// Fractional surprise, e.g. 0.05 = 5%
-    pub eps_surprise: Option<f64>,
+    pub eps_surprise_pct: Option<f64>,
     pub revenue_reported: Option<f64>,
     pub revenue_estimate: Option<f64>,
-    /// Fractional surprise, e.g. -0.02 = -2%
-    pub revenue_surprise: Option<f64>,
+    pub revenue_surprise_pct: Option<f64>,
 }
 
 #[derive(Debug)]

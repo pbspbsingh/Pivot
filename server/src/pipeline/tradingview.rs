@@ -4,20 +4,19 @@ use chrome_driver::{
     chromiumoxide::cdp::browser_protocol::target::CloseTargetParams,
 };
 
-use crate::models::pipeline::EarningsData;
 use crate::{
     config::CONFIG,
-    models::pipeline::{EarningsEntry, ForecastData, Periodicity, StockBasicInfo},
+    models::pipeline::{EarningsData, EarningsEntry, ForecastData, Periodicity, StockBasicInfo},
 };
 
 const TV_HOME: &str = "https://www.tradingview.com";
 
-pub struct TradingViewScraper {
+pub struct TradingView {
     _browser: Browser,
     page: Page,
 }
 
-impl TradingViewScraper {
+impl TradingView {
     pub async fn new() -> Result<Self> {
         let mut browser = connect_browser().await?;
 
@@ -165,9 +164,7 @@ impl TradingViewScraper {
         })
     }
 
-    /// Fetches price target, analyst ratings, and EPS/Revenue earnings for a
-    /// stock. Navigates to the forecast page for price/rating data and to the
-    /// financials-overview earnings tab for historical and estimated EPS/Revenue.
+    /// Fetches price target and analyst ratings from the TradingView forecast page.
     pub async fn fetch_forecast_data(&self, exchange: &str, symbol: &str) -> Result<ForecastData> {
         // ── forecast page — price target + analyst ratings ──────────
         let forecast_url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/forecast/");
@@ -189,11 +186,13 @@ impl TradingViewScraper {
         // ── Build ForecastData from raw JSON ─────────────────────────────────
         let f = &forecast_raw;
         Ok(ForecastData {
-            price_current: f["price_current"].as_f64(),
-            price_target_average: f["price_target_average"].as_f64(),
-            price_target_average_upside_pct: f["price_target_average_upside_pct"].as_f64(),
-            price_target_max: f["price_target_max"].as_f64(),
-            price_target_min: f["price_target_min"].as_f64(),
+            price_current: f["price_current"].as_f64().map(round2),
+            price_target_average: f["price_target_average"].as_f64().map(round2),
+            price_target_average_upside_pct: f["price_target_average_upside_pct"]
+                .as_f64()
+                .map(round2),
+            price_target_max: f["price_target_max"].as_f64().map(round2),
+            price_target_min: f["price_target_min"].as_f64().map(round2),
             price_target_analyst_count: f["price_target_analyst_count"].as_u64().map(|n| n as u32),
             rating_strong_buy: f["rating_strong_buy"].as_u64().map(|n| n as u32),
             rating_buy: f["rating_buy"].as_u64().map(|n| n as u32),
@@ -440,16 +439,19 @@ fn parse_earnings_json(
             _ => continue,
         };
 
-        let eps_reported = parse_tv_value(eps_rows["Reported"][i]["value"].as_str().unwrap_or(""));
-        let eps_estimate = parse_tv_value(eps_rows["Estimate"][i]["value"].as_str().unwrap_or(""));
-        let eps_surprise = parse_tv_pct(eps_rows["Surprise"][i]["value"].as_str().unwrap_or(""));
+        let eps_reported =
+            parse_tv_value(eps_rows["Reported"][i]["value"].as_str().unwrap_or("")).map(round2);
+        let eps_estimate =
+            parse_tv_value(eps_rows["Estimate"][i]["value"].as_str().unwrap_or("")).map(round2);
+        let eps_surprise_pct =
+            parse_tv_pct(eps_rows["Surprise"][i]["value"].as_str().unwrap_or("")).map(round2);
 
         let revenue_reported =
-            parse_tv_value(rev_rows["Reported"][i]["value"].as_str().unwrap_or(""));
+            parse_tv_value(rev_rows["Reported"][i]["value"].as_str().unwrap_or("")).map(round2);
         let revenue_estimate =
-            parse_tv_value(rev_rows["Estimate"][i]["value"].as_str().unwrap_or(""));
-        let revenue_surprise =
-            parse_tv_pct(rev_rows["Surprise"][i]["value"].as_str().unwrap_or(""));
+            parse_tv_value(rev_rows["Estimate"][i]["value"].as_str().unwrap_or("")).map(round2);
+        let revenue_surprise_pct =
+            parse_tv_pct(rev_rows["Surprise"][i]["value"].as_str().unwrap_or("")).map(round2);
 
         if eps_reported.is_none()
             && eps_estimate.is_none()
@@ -464,19 +466,23 @@ fn parse_earnings_json(
             periodicity,
             eps_reported,
             eps_estimate,
-            eps_surprise,
+            eps_surprise_pct,
             revenue_reported,
             revenue_estimate,
-            revenue_surprise,
+            revenue_surprise_pct,
         });
     }
 
     Ok(entries)
 }
 
-/// Parses a TradingView numeric value like "634.34 M", "1.63 B", "-105.53 M".
-/// Unicode directional marks (U+202A/202C) are stripped; U+2212 is treated as minus.
-/// Returns `None` for TradingView's em-dash sentinel (U+2014) and empty strings.
+fn round2(v: f64) -> f64 {
+    (v * 100.0).round() / 100.0
+}
+
+/// Parses a TradingView numeric string, handling K/M/B/T suffixes (e.g. "1.63 B" → 1_630_000_000).
+/// Strips unicode directional marks and treats U+2212 as minus.
+/// Returns `None` for the em-dash sentinel (U+2014) and empty strings.
 fn parse_tv_value(s: &str) -> Option<f64> {
     let clean: String = s
         .chars()
@@ -505,13 +511,11 @@ fn parse_tv_value(s: &str) -> Option<f64> {
         _ => (rest, 1.0_f64),
     };
     let n: f64 = num_str.trim().parse().ok()?;
-    let raw = if neg { -(n * mult) } else { n * mult };
-    Some((raw * 1000.0).round() / 1000.0)
+    Some(if neg { -(n * mult) } else { n * mult })
 }
 
-/// Parses a TradingView percentage string like "+20.78%" or "−15.40%" into a
-/// fractional `f64` (e.g. 0.2078). Returns `None` for the em-dash sentinel and
-/// empty strings.
+/// Parses a TradingView percentage string like "+20.78%" or "−15.40%" into a raw f64
+/// (e.g. 20.78). Returns `None` for the em-dash sentinel and empty strings.
 fn parse_tv_pct(s: &str) -> Option<f64> {
     let clean: String = s
         .chars()
@@ -522,17 +526,16 @@ fn parse_tv_pct(s: &str) -> Option<f64> {
             )
         })
         .collect();
-    let clean = clean.trim();
+    let clean = clean.trim().replace('\u{2212}', "-");
     if clean.is_empty() || clean == "\u{2014}" {
         return None;
     }
-    let clean = clean.replace('\u{2212}', "-");
     let n: f64 = clean
         .trim_start_matches('+')
         .trim_end_matches('%')
         .parse()
         .ok()?;
-    Some((n / 100.0 * 1e5).round() / 1e5)
+    Some(n)
 }
 
 async fn connect_browser() -> Result<Browser> {
@@ -553,7 +556,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_basic_info() {
-        let scraper = TradingViewScraper::new()
+        let scraper = TradingView::new()
             .await
             .expect("Failed to initialise TradingViewScraper");
 
@@ -567,12 +570,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_earnings_data() {
-        let scraper = TradingViewScraper::new()
+        let scraper = TradingView::new()
             .await
             .expect("Failed to initialise TradingViewScraper");
 
         let data = scraper
-            .fetch_earnings_data("NASDAQ", "AAPL")
+            .fetch_earnings_data("NASDAQ", "GOOG")
             .await
             .expect("Failed to fetch earnings data");
 
@@ -581,7 +584,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_forecast_data() {
-        let scraper = TradingViewScraper::new()
+        let scraper = TradingView::new()
             .await
             .expect("Failed to initialise TradingViewScraper");
 
