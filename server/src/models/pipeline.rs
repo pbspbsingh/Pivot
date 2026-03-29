@@ -27,6 +27,13 @@ pub struct EarningsEntry {
 }
 
 #[derive(Debug)]
+pub struct EarningsData {
+    // EPS + Revenue by period type
+    pub quarterly_earnings: Vec<EarningsEntry>,
+    pub annual_earnings: Vec<EarningsEntry>,
+}
+
+#[derive(Debug)]
 pub struct ForecastData {
     // Price target
     pub price_current: Option<f64>,
@@ -44,8 +51,4 @@ pub struct ForecastData {
     pub rating_strong_sell: Option<u32>,
     pub rating_total_analysts: Option<u32>,
     pub rating_consensus: Option<String>,
-
-    // EPS + Revenue by period type
-    pub quarterly_earnings: Vec<EarningsEntry>,
-    pub annual_earnings: Vec<EarningsEntry>,
 }

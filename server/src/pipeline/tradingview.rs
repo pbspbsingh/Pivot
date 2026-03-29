@@ -4,6 +4,7 @@ use chrome_driver::{
     chromiumoxide::cdp::browser_protocol::target::CloseTargetParams,
 };
 
+use crate::models::pipeline::EarningsData;
 use crate::{
     config::CONFIG,
     models::pipeline::{EarningsEntry, ForecastData, Periodicity, StockBasicInfo},
@@ -105,27 +106,7 @@ impl TradingViewScraper {
         })
     }
 
-    /// Fetches price target, analyst ratings, and EPS/Revenue earnings for a
-    /// stock. Navigates to the forecast page for price/rating data and to the
-    /// financials-overview earnings tab for historical and estimated EPS/Revenue.
-    pub async fn fetch_forecast_data(&self, exchange: &str, symbol: &str) -> Result<ForecastData> {
-        // ── Step 1: forecast page — price target + analyst ratings ──────────
-        let forecast_url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/forecast/");
-        self.page
-            .goto(&forecast_url)
-            .await
-            .with_context(|| format!("Failed to navigate to {forecast_url}"))?
-            .wait_for_navigation()
-            .await
-            .with_context(|| format!("Page did not finish loading for {forecast_url}"))?;
-        self.page.sleep().await;
-
-        let forecast_raw = self
-            .evaluate_forecast_js()
-            .await
-            .context("Failed to evaluate forecast JS")?;
-
-        // ── Step 2: financials earnings page — EPS + Revenue ────────────────
+    pub async fn fetch_earnings_data(&self, exchange: &str, symbol: &str) -> Result<EarningsData> {
         let fin_url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/financials-earnings/");
         self.page
             .goto(&fin_url)
@@ -133,7 +114,9 @@ impl TradingViewScraper {
             .with_context(|| format!("Failed to navigate to {fin_url}"))?
             .wait_for_navigation()
             .await
-            .with_context(|| format!("Page did not finish loading for {fin_url}"))?;
+            .with_context(|| format!("Page did not finish loading for {fin_url}"))?
+            .sleep()
+            .await;
 
         // Detect which period tabs are present (FQ = quarterly, FY = annual, FH = half-yearly).
         let available_tabs = self
@@ -176,6 +159,33 @@ impl TradingViewScraper {
             vec![]
         };
 
+        Ok(EarningsData {
+            quarterly_earnings,
+            annual_earnings,
+        })
+    }
+
+    /// Fetches price target, analyst ratings, and EPS/Revenue earnings for a
+    /// stock. Navigates to the forecast page for price/rating data and to the
+    /// financials-overview earnings tab for historical and estimated EPS/Revenue.
+    pub async fn fetch_forecast_data(&self, exchange: &str, symbol: &str) -> Result<ForecastData> {
+        // ── forecast page — price target + analyst ratings ──────────
+        let forecast_url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/forecast/");
+        self.page
+            .goto(&forecast_url)
+            .await
+            .with_context(|| format!("Failed to navigate to {forecast_url}"))?
+            .wait_for_navigation()
+            .await
+            .with_context(|| format!("Page did not finish loading for {forecast_url}"))?
+            .sleep()
+            .await;
+
+        let forecast_raw = self
+            .evaluate_forecast_js()
+            .await
+            .context("Failed to evaluate forecast JS")?;
+
         // ── Build ForecastData from raw JSON ─────────────────────────────────
         let f = &forecast_raw;
         Ok(ForecastData {
@@ -192,8 +202,6 @@ impl TradingViewScraper {
             rating_strong_sell: f["rating_strong_sell"].as_u64().map(|n| n as u32),
             rating_total_analysts: f["rating_total_analysts"].as_u64().map(|n| n as u32),
             rating_consensus: f["rating_consensus"].as_str().map(str::to_string),
-            quarterly_earnings,
-            annual_earnings,
         })
     }
 
@@ -550,11 +558,25 @@ mod tests {
             .expect("Failed to initialise TradingViewScraper");
 
         let info = scraper
-            .fetch_basic_info("NASDAQ", "NVDA")
+            .fetch_basic_info("NASDAQ", "TSLA")
             .await
             .expect("Failed to fetch basic info");
 
         println!("{info:#?}");
+    }
+
+    #[tokio::test]
+    async fn test_fetch_earnings_data() {
+        let scraper = TradingViewScraper::new()
+            .await
+            .expect("Failed to initialise TradingViewScraper");
+
+        let data = scraper
+            .fetch_earnings_data("NASDAQ", "AAPL")
+            .await
+            .expect("Failed to fetch earnings data");
+
+        println!("{data:#?}");
     }
 
     #[tokio::test]
@@ -564,96 +586,10 @@ mod tests {
             .expect("Failed to initialise TradingViewScraper");
 
         let data = scraper
-            .fetch_forecast_data("NASDAQ", "AAPL")
+            .fetch_forecast_data("NYSE", "GE")
             .await
             .expect("Failed to fetch forecast data");
 
         println!("{data:#?}");
-    }
-
-    #[tokio::test]
-    async fn test_dump_forecast_html() {
-        let scraper = TradingViewScraper::new()
-            .await
-            .expect("Failed to initialise TradingViewScraper");
-
-        scraper
-            .page
-            .goto("https://www.tradingview.com/symbols/NASDAQ-GOOG/forecast/")
-            .await
-            .expect("Failed to navigate")
-            .wait_for_navigation()
-            .await
-            .expect("Failed to wait for navigation");
-
-        scraper.page.sleep().await;
-
-        let html = scraper
-            .page
-            .content()
-            .await
-            .expect("Failed to get page content");
-
-        std::fs::write("/tmp/goog_forecast.html", &html).expect("Failed to write HTML");
-        println!(
-            "HTML written to /tmp/goog_forecast.html ({} bytes)",
-            html.len()
-        );
-    }
-
-    #[tokio::test]
-    async fn test_debug_forecast_selectors() {
-        let scraper = TradingViewScraper::new()
-            .await
-            .expect("Failed to initialise TradingViewScraper");
-
-        scraper
-            .page
-            .goto("https://www.tradingview.com/symbols/NASDAQ-GOOG/forecast/")
-            .await
-            .expect("Failed to navigate")
-            .wait_for_navigation()
-            .await
-            .expect("Failed to wait for navigation");
-
-        scraper.page.sleep().await;
-
-        let raw = scraper
-            .page
-            .evaluate(r#"(function() {
-                // Price target
-                const ptLabelEl = Array.from(document.querySelectorAll('span'))
-                    .find(el => !el.children.length && el.textContent.trim() === '1 year price target');
-                const ptItem = ptLabelEl ? ptLabelEl.parentElement?.parentElement : null;
-                const priceEl = ptItem
-                    ? Array.from(ptItem.querySelectorAll('span'))
-                        .find(el => !el.children.length && /^\d[\d,.]*$/.test(el.textContent.trim()))
-                    : null;
-                const changeEl = ptItem
-                    ? Array.from(ptItem.querySelectorAll('span'))
-                        .find(el => !el.children.length && el.textContent.trim().includes('%'))
-                    : null;
-
-                // Ratings
-                const analystRating = document.querySelector('[class*="analystRating-"]');
-                const wrap = analystRating ? analystRating.lastElementChild : null;
-                const wrapChildren = wrap ? Array.from(wrap.children).map(c => c.textContent.trim()) : [];
-
-                return {
-                    ptLabelFound: !!ptLabelEl,
-                    ptItemFound: !!ptItem,
-                    priceText: priceEl ? priceEl.textContent.trim() : null,
-                    changeText: changeEl ? changeEl.textContent.trim() : null,
-                    analystRatingFound: !!analystRating,
-                    analystRatingClass: analystRating ? analystRating.className : null,
-                    wrapFound: !!wrap,
-                    wrapChildCount: wrap ? wrap.children.length : 0,
-                    wrapChildren,
-                };
-            })()"#)
-            .await
-            .expect("Failed to evaluate debug JS");
-
-        println!("{raw:#?}");
     }
 }
