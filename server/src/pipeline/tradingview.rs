@@ -360,42 +360,54 @@ impl TradingView {
     }
 
     /// Extracts EPS and Revenue table data from the TradingView financials
-    /// earnings tab. Ported from Fundamentals/scraper/src/financial_scraper/mod.rs.
+    /// earnings tab.
     /// Returns a JSON object: `{ eps: { labels, rows }, revenue: { labels, rows } }`.
     async fn evaluate_earnings_js(&self) -> Result<serde_json::Value> {
-        // class*= patterns use fragment substrings; the full obfuscated suffixes
-        // will change across TradingView deploys but the meaningful prefix fragment
-        // stays stable (e.g. "table-GQWAi9kx" vs future "table-XYZ12345").
+        // Anchor on data-name="Reported|Estimate|Surprise" — a stable semantic attribute
+        // TradingView sets explicitly on each row. No CSS module hashes anywhere.
+        //
+        // Observed DOM structure:
+        //   tableContainer
+        //     headerContainer (no data-name)
+        //       values-*  >  container-* > wrap-* > value-*  (period labels)
+        //     [data-name="Reported"]
+        //       values-*  >  container-* > value-* OR lockButton-*
+        //     [data-name="Estimate"]  …
+        //     [data-name="Surprise"]  …
         const JS: &str = r#"(function() {
-            const tables = document.querySelectorAll('[class*="table-GQWAi9kx"]');
-            const result = {};
             const tableNames = ['eps', 'revenue'];
+            const ROW_NAMES  = ['Reported', 'Estimate', 'Surprise'];
+            const result = {};
 
-            tables.forEach((tbl, idx) => {
-                const key = tableNames[idx] ?? `table${idx}`;
+            // Collect all data rows via the stable data-name attribute.
+            const allRows = Array.from(
+                document.querySelectorAll(ROW_NAMES.map(n => `[data-name="${n}"]`).join(','))
+            );
 
-                const headerContainer = tbl.querySelector('[class*="container-OWKkVLyj"]');
-                const valuesEl = headerContainer
-                    ? headerContainer.querySelector('[class*="values-OWKkVLyj"]')
-                    : null;
-                const labels = [];
-                if (valuesEl) {
-                    for (const cell of valuesEl.children) {
-                        const val = cell.querySelector('[class*="value-OxVAcLqi"]');
-                        labels.push(val ? val.textContent.trim() : null);
-                    }
-                }
+            // Group rows by their immediate parent element; each table's rows
+            // share one parent. Sort groups into DOM order (EPS first, Revenue second).
+            const parentMap = new Map();
+            for (const row of allRows) {
+                const p = row.parentElement;
+                if (!parentMap.has(p)) parentMap.set(p, []);
+                parentMap.get(p).push(row);
+            }
+            const tableGroups = Array.from(parentMap.values()).sort((a, b) =>
+                a[0].compareDocumentPosition(b[0]) & 4 ? -1 : 1
+            );
 
-                const rows = {};
-                for (const row of tbl.querySelectorAll('[class*="container-C9MdAMrq"]')) {
-                    const titleEl = row.querySelector('[class*="titleText-C9MdAMrq"]');
-                    if (!titleEl) continue;
-                    const title = titleEl.textContent.trim();
-                    const valuesDiv = row.querySelector('[class*="values-C9MdAMrq"]');
-                    const cells = [];
-                    if (valuesDiv) {
-                        for (const cell of valuesDiv.children) {
-                            const val = cell.querySelector('[class*="value-OxVAcLqi"]');
+            for (let t = 0; t < Math.min(tableGroups.length, tableNames.length); t++) {
+                const group = tableGroups[t];
+                const key   = tableNames[t];
+                const rows  = {};
+
+                for (const rowEl of group) {
+                    const title    = rowEl.dataset.name;
+                    const valuesEl = rowEl.querySelector('[class*="values-"]');
+                    const cells    = [];
+                    if (valuesEl) {
+                        for (const cell of valuesEl.children) {
+                            const val    = cell.querySelector('[class*="value-"]');
                             const locked = !!cell.querySelector('[class*="lockButton"]');
                             cells.push({ value: val ? val.textContent.trim() : null, locked });
                         }
@@ -403,8 +415,24 @@ impl TradingView {
                     rows[title] = cells;
                 }
 
+                // Column labels: find the header — a sibling of the data rows
+                // that has a values-* child but no data-name attribute.
+                const labels     = [];
+                const rowsParent = group[0].parentElement;
+                for (const child of rowsParent.children) {
+                    if (child.dataset.name) continue; // skip data rows
+                    const valuesEl = child.querySelector('[class*="values-"]');
+                    if (valuesEl && valuesEl.children.length > 0) {
+                        for (const cell of valuesEl.children) {
+                            const val = cell.querySelector('[class*="value-"]');
+                            labels.push(val ? val.textContent.trim() : null);
+                        }
+                        break;
+                    }
+                }
+
                 result[key] = { labels, rows };
-            });
+            }
 
             return result;
         })()"#;

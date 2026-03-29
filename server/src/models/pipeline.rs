@@ -51,6 +51,8 @@ pub struct ForecastData {
     pub rating_consensus: Option<String>,
 }
 
+pub struct EarningsRelease {}
+
 #[derive(Debug)]
 pub struct EightK {
     pub filed_at: chrono::NaiveDate,
