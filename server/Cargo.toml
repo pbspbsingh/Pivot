@@ -30,3 +30,4 @@ chrome_driver = { path = "../../ChromeDriver" }
 
 # error handling
 anyhow = "1"
+htmd = "0.5"

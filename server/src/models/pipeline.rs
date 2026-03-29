@@ -50,3 +50,12 @@ pub struct ForecastData {
     pub rating_total_analysts: Option<u32>,
     pub rating_consensus: Option<String>,
 }
+
+#[derive(Debug)]
+pub struct EightK {
+    pub filed_at: chrono::NaiveDate,
+    pub description: String,
+    pub is_earnings_release: bool,
+    pub press_release: Option<String>,
+    pub cfo_commentary: Option<String>,
+}
