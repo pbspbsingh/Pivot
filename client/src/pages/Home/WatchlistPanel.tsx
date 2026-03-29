@@ -134,12 +134,16 @@ export function WatchlistPanel({ watchlist }: Props) {
     try {
       const { added, failed } = await watchlistApi.addStocks(watchlist.id, symbols);
       if (added.length > 0) {
-        const updated = await watchlistApi.listStocks(watchlist.id);
+        const [updated, jobsData] = await Promise.all([
+          watchlistApi.listStocks(watchlist.id),
+          jobsApi.listWatchlistJobs(watchlist.id),
+        ]);
         setStocks(updated);
         setWatchlistStocks(
           watchlist.id,
           updated.map((s) => s.symbol),
         );
+        setWatchlistJobs({ watchlistId: watchlist.id, ...jobsData });
         setTickerInput('');
       }
       if (failed.length > 0) {

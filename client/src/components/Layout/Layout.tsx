@@ -124,7 +124,7 @@ export function Layout() {
           {watchlists.map((w) => (
             <NavLink
               key={w.id}
-              label={w.name}
+              label={<Text size="sm" fw={600} c="blue.3" style={{ letterSpacing: '0.05em' }}>{w.name}</Text>}
               leftSection={<span>{w.emoji}</span>}
               opened={expandedWatchlistIds[w.id] ?? false}
               onClick={() => handleToggle(w.id)}
@@ -144,7 +144,7 @@ export function Layout() {
                         component={RouterNavLink}
                         to={`/stock/${symbol}`}
                         styles={{
-                          label: { fontFamily: 'monospace', fontSize: 12 },
+                          label: { fontFamily: 'monospace', fontSize: 11 },
                           root: { padding: '2px 8px' },
                         }}
                         onContextMenu={(e: React.MouseEvent) => {
