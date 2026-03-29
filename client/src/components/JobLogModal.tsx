@@ -12,16 +12,18 @@ interface Props {
 
 export function JobLogModal({ jobId, symbol, onClose }: Props) {
   const [log, setLog] = useState<StepAttempt[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadedForJobId, setLoadedForJobId] = useState<number | null>(null);
+  const loading = jobId != null && loadedForJobId !== jobId;
 
   useEffect(() => {
     if (jobId == null) return;
-    setLoading(true);
     jobsApi
       .getJobLog(jobId)
-      .then(setLog)
-      .catch((e: Error) => notifyError(e.message))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        setLog(data);
+        setLoadedForJobId(jobId);
+      })
+      .catch((e: Error) => notifyError(e.message));
   }, [jobId]);
 
   return (

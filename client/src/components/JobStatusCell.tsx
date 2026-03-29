@@ -23,7 +23,7 @@ interface Props {
   onViewLog: (jobId: number) => void;
 }
 
-export function JobStatusCell({ symbol: _symbol, job, stepAvgMs, onAnalyze, onViewLog }: Props) {
+export function JobStatusCell({ job, stepAvgMs, onAnalyze, onViewLog }: Props) {
   if (!job || job.status === 'completed') {
     return (
       <Group gap={4} wrap="nowrap">

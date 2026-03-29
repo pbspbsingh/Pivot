@@ -1,20 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 interface DigitProps {
   value: string;
 }
 
 function Digit({ value }: DigitProps) {
+  const [prevValue, setPrevValue] = useState(value);
   const [from, setFrom] = useState(value);
   const [to, setTo] = useState(value);
   const [animating, setAnimating] = useState(false);
 
-  useEffect(() => {
-    if (value === to) return;
+  // Derived state from props: when value changes, start the animation.
+  // React re-renders immediately with updated state, no effect needed.
+  if (prevValue !== value) {
+    setPrevValue(value);
     setFrom(to);
     setTo(value);
     setAnimating(true);
-  }, [value, to]);
+  }
 
   return (
     <span style={{ overflow: 'hidden', height: '1em', display: 'inline-block', lineHeight: 1, verticalAlign: 'top' }}>
