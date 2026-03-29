@@ -18,7 +18,7 @@ import { notifyError } from '../../utils/notify';
 import { JobStatusCell } from '../../components/JobStatusCell';
 import { JobLogModal } from '../../components/JobLogModal';
 
-type SortKey = 'symbol' | 'sector' | 'industry' | 'score' | 'score_updated_at';
+type SortKey = 'symbol' | 'sector' | 'industry' | 'score' | 'analyzed_at';
 
 interface SortHeaderProps {
   label: string;
@@ -92,25 +92,9 @@ export function WatchlistPanel({ watchlist }: Props) {
     }
   }
 
-  function getScore(stock: Stock): number | null {
-    return watchlist.is_default ? stock.ep_score : stock.vcp_score;
-  }
-
   const sortedStocks = [...stocks].sort((a, b) => {
-    let aVal: string | number | null;
-    let bVal: string | number | null;
-
-    if (sortBy === 'score') {
-      aVal = getScore(a);
-      bVal = getScore(b);
-    } else if (sortBy === 'score_updated_at') {
-      aVal = a.score_updated_at;
-      bVal = b.score_updated_at;
-    } else {
-      aVal = a[sortBy];
-      bVal = b[sortBy];
-    }
-
+    const aVal: string | null = sortBy === 'score' ? null : a[sortBy];
+    const bVal: string | null = sortBy === 'score' ? null : b[sortBy];
     if (aVal == null && bVal == null) return 0;
     if (aVal == null) return 1;
     if (bVal == null) return -1;
@@ -197,13 +181,7 @@ export function WatchlistPanel({ watchlist }: Props) {
               <SortHeader label={scoreLabel} sortKey="score" sortBy={sortBy} sortDir={sortDir} onToggle={toggleSort} />
             </Table.Th>
             <Table.Th>
-              <SortHeader
-                label="Score Updated"
-                sortKey="score_updated_at"
-                sortBy={sortBy}
-                sortDir={sortDir}
-                onToggle={toggleSort}
-              />
+              <SortHeader label="Analyzed" sortKey="analyzed_at" sortBy={sortBy} sortDir={sortDir} onToggle={toggleSort} />
             </Table.Th>
             <Table.Th>Status</Table.Th>
             <Table.Th />
@@ -220,9 +198,9 @@ export function WatchlistPanel({ watchlist }: Props) {
                 <Table.Td fw={600}>{stock.symbol}</Table.Td>
                 <Table.Td c="dimmed">{stock.sector ?? '—'}</Table.Td>
                 <Table.Td c="dimmed">{stock.industry ?? '—'}</Table.Td>
-                <Table.Td>{getScore(stock) ?? '—'}</Table.Td>
+                <Table.Td c="dimmed">—</Table.Td>
                 <Table.Td c="dimmed">
-                  {stock.score_updated_at ? new Date(stock.score_updated_at).toLocaleString() : '—'}
+                  {stock.analyzed_at ? new Date(stock.analyzed_at).toLocaleString() : '—'}
                 </Table.Td>
                 <Table.Td>
                   {!isDeleted && (

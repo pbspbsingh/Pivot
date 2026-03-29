@@ -1,13 +1,15 @@
+use serde::{Serialize, de::DeserializeOwned};
+use std::sync::OnceLock;
 use std::{
     future::Future,
     time::{Duration, Instant},
 };
-
-use serde::Serialize;
+use tokio::sync::OnceCell;
 use tokio::time::sleep;
 
 use crate::{
     db,
+    models::pipeline::{EarningsData, EarningsRelease, ForecastData, StockBasicInfo},
     models::{JobStatus, PipelineStep},
     pipeline::tradingview::TradingView,
     sse,
@@ -103,8 +105,8 @@ fn broadcast_job(
 fn backoff_delay(attempt: i64) -> Duration {
     match attempt {
         1 => Duration::from_secs(5),
-        2 => Duration::from_secs(15),
-        _ => Duration::from_secs(30),
+        2 => Duration::from_secs(10),
+        _ => Duration::from_secs(15),
     }
 }
 
@@ -163,10 +165,10 @@ where
 async fn execute_step(
     job_id: i64,
     step: PipelineStep,
-    tv: &TradingView,
     exchange: &str,
     symbol: &str,
 ) -> Result<(), String> {
+    let tv = trading_view().await.map_err(|e| e.to_string())?;
     match step {
         PipelineStep::BasicInfo => {
             run_step(job_id, step, || tv.fetch_basic_info(exchange, symbol)).await
@@ -182,6 +184,31 @@ async fn execute_step(
         }
         PipelineStep::Queued | PipelineStep::Done => Ok(()),
     }
+}
+
+async fn load_step_data<T: DeserializeOwned>(job_id: i64, step: PipelineStep) -> Result<T, String> {
+    let json = db::jobs::get_step_data(job_id, step)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Missing step data for {step:?} in job {job_id}"))?;
+    serde_json::from_value(json).map_err(|e| format!("Deserialize error for {step:?}: {e}"))
+}
+
+async fn save_analysis(job_id: i64, symbol: &str, watchlist_id: i64) -> Result<(), String> {
+    let basic_info: StockBasicInfo = load_step_data(job_id, PipelineStep::BasicInfo).await?;
+    let earnings: EarningsData = load_step_data(job_id, PipelineStep::Earnings).await?;
+    let forecast: ForecastData = load_step_data(job_id, PipelineStep::Forecast).await?;
+    let document: EarningsRelease = load_step_data(job_id, PipelineStep::Document).await?;
+    db::analysis::upsert(
+        symbol,
+        watchlist_id,
+        &basic_info,
+        &earnings,
+        &forecast,
+        &document,
+    )
+    .await
+    .map_err(|e| e.to_string())
 }
 
 async fn process_job(job: db::jobs::AnalysisJob) {
@@ -205,7 +232,10 @@ async fn process_job(job: db::jobs::AnalysisJob) {
 
 async fn try_process_job(job_id: i64, symbol: &str, watchlist_id: i64) -> Result<(), String> {
     let Some(start) = find_resume_step(job_id).await? else {
-        // All steps already cached — just mark complete.
+        // All steps already cached — persist analysis and mark complete.
+        if let Err(e) = save_analysis(job_id, symbol, watchlist_id).await {
+            tracing::warn!(job_id, symbol, "Failed to save analysis: {e}");
+        }
         db::jobs::complete(job_id).await.ok();
         broadcast_job(
             job_id,
@@ -234,18 +264,17 @@ async fn try_process_job(job_id: i64, symbol: &str, watchlist_id: i64) -> Result
         None,
     );
 
-    let tv = TradingView::new()
-        .await
-        .map_err(|e| format!("Chrome connection failed: {e:#}"))?;
-
     for (i, &step) in PIPELINE[start..].iter().enumerate() {
         if i > 0 {
             db::jobs::set_step(job_id, step).await.ok();
             broadcast_job(job_id, symbol, watchlist_id, JobStatus::Running, step, None);
         }
-        execute_step(job_id, step, &tv, &exchange, symbol).await?;
+        execute_step(job_id, step, &exchange, symbol).await?;
     }
 
+    if let Err(e) = save_analysis(job_id, symbol, watchlist_id).await {
+        tracing::warn!(job_id, symbol, "Failed to save analysis: {e}");
+    }
     db::jobs::complete(job_id).await.ok();
     broadcast_job(
         job_id,
@@ -258,4 +287,10 @@ async fn try_process_job(job_id: i64, symbol: &str, watchlist_id: i64) -> Result
     tracing::info!(job_id, symbol, watchlist_id, "Job completed");
 
     Ok(())
+}
+
+async fn trading_view() -> anyhow::Result<&'static TradingView> {
+    static TV: OnceCell<TradingView> = OnceCell::const_new();
+
+    TV.get_or_try_init(TradingView::new).await
 }

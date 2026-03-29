@@ -67,12 +67,23 @@ pub async fn list_stocks(watchlist_id: i64) -> Result<Vec<Stock>> {
     let rows = sqlx::query_as!(
         Stock,
         r#"
-        SELECT s.symbol as "symbol!", s.exchange as "exchange!", s.sector, s.industry, s.ep_score, s.vcp_score, s.score_updated_at
-        FROM watchlist_stocks ws
-        JOIN stocks s ON s.symbol = ws.symbol
-        WHERE ws.watchlist_id = ? AND ws.deleted_at IS NULL
-        ORDER BY s.symbol ASC
-        "#,
+            SELECT
+                s.symbol as "symbol!",
+                s.exchange as "exchange!",
+                -- Use ->> to get unquoted text directly
+                (sa.basic_info ->> '$.sector') as "sector?: String",
+                (sa.basic_info ->> '$.industry') as "industry?: String",
+                -- Added '?' because this comes from a LEFT JOIN and can be NULL
+                sa.analyzed_at as "analyzed_at?"
+            FROM watchlist_stocks ws
+            JOIN stocks s ON s.symbol = ws.symbol
+            LEFT JOIN stock_analysis sa
+                ON sa.symbol = ws.symbol
+                AND sa.watchlist_id = ws.watchlist_id
+            WHERE ws.watchlist_id = ?
+              AND ws.deleted_at IS NULL
+            ORDER BY s.symbol ASC
+       "#,
         watchlist_id
     )
     .fetch_all(pool())

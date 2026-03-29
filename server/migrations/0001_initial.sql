@@ -7,14 +7,9 @@ CREATE TABLE watchlists (
 );
 
 CREATE TABLE stocks (
-    symbol           TEXT     PRIMARY KEY,
-    exchange         TEXT     NOT NULL,
-    sector           TEXT,
-    industry         TEXT,
-    ep_score         REAL,
-    vcp_score        REAL,
-    score_updated_at DATETIME,
-    created_at       DATETIME NOT NULL DEFAULT (datetime('now'))
+    symbol     TEXT     PRIMARY KEY,
+    exchange   TEXT     NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE watchlist_stocks (

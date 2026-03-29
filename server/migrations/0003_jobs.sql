@@ -8,6 +8,8 @@ CREATE TABLE analysis_jobs (
     created_at   DATETIME NOT NULL DEFAULT (datetime('now')),
     updated_at   DATETIME NOT NULL DEFAULT (datetime('now'))
 );
+-- CREATE INDEX idx_analysis_jobs_watchlist_symbol_id
+--    ON analysis_jobs (watchlist_id, symbol, id DESC);
 
 CREATE TABLE job_step_data (
     job_id   INTEGER  NOT NULL REFERENCES analysis_jobs(id) ON DELETE CASCADE,

@@ -1,3 +1,4 @@
+pub mod analysis;
 pub mod edgar;
 pub mod jobs;
 pub mod watchlists;
