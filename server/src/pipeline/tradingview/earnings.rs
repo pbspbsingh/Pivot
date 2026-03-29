@@ -8,15 +8,7 @@ use super::{TV_HOME, TradingView, round2};
 impl TradingView {
     pub async fn fetch_earnings_data(&self, exchange: &str, symbol: &str) -> Result<EarningsData> {
         let fin_url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/financials-earnings/");
-        self.page
-            .goto(&fin_url)
-            .await
-            .with_context(|| format!("Failed to navigate to {fin_url}"))?
-            .wait_for_navigation()
-            .await
-            .with_context(|| format!("Page did not finish loading for {fin_url}"))?
-            .sleep()
-            .await;
+        self.goto(&fin_url).await?;
 
         // Detect which period tabs are present (FQ = quarterly, FY = annual, FH = half-yearly).
         let available_tabs = self

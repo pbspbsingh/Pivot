@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use chrome_driver::PageFeatures;
 
 use crate::models::pipeline::StockBasicInfo;
 
@@ -11,15 +10,7 @@ impl TradingView {
     pub async fn fetch_basic_info(&self, exchange: &str, symbol: &str) -> Result<StockBasicInfo> {
         let url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/");
 
-        self.page
-            .goto(&url)
-            .await
-            .with_context(|| format!("Failed to navigate to {url}"))?
-            .wait_for_navigation()
-            .await
-            .with_context(|| format!("Page did not finish loading for {url}"))?
-            .sleep()
-            .await;
+        self.goto(&url).await?;
 
         // Sector and industry are in breadcrumb links whose href contains
         // "sectorandindustry-sector" / "sectorandindustry-industry".

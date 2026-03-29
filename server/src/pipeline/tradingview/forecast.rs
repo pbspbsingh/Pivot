@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use chrome_driver::PageFeatures;
 
 use crate::models::pipeline::ForecastData;
 
@@ -9,15 +8,7 @@ impl TradingView {
     /// Fetches price target and analyst ratings from the TradingView forecast page.
     pub async fn fetch_forecast_data(&self, exchange: &str, symbol: &str) -> Result<ForecastData> {
         let forecast_url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/forecast/");
-        self.page
-            .goto(&forecast_url)
-            .await
-            .with_context(|| format!("Failed to navigate to {forecast_url}"))?
-            .wait_for_navigation()
-            .await
-            .with_context(|| format!("Page did not finish loading for {forecast_url}"))?
-            .sleep()
-            .await;
+        self.goto(&forecast_url).await?;
 
         let forecast_raw = self
             .evaluate_forecast_js()

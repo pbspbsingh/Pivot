@@ -1,16 +1,17 @@
 mod basic_info;
+mod document;
 mod earnings;
 mod forecast;
 
 use anyhow::{Context, Result};
 use chrome_driver::{
-    Browser, ChromeDriverConfig, Page,
+    Browser, ChromeDriverConfig, Page, PageFeatures,
     chromiumoxide::cdp::browser_protocol::target::CloseTargetParams,
 };
 
 use crate::config::CONFIG;
 
-pub(super) const TV_HOME: &str = "https://www.tradingview.com";
+const TV_HOME: &str = "https://www.tradingview.com";
 
 pub struct TradingView {
     _browser: Browser,
@@ -45,9 +46,23 @@ impl TradingView {
             page,
         })
     }
+
+    async fn goto(&self, url: impl AsRef<str>) -> Result<()> {
+        let url = url.as_ref();
+        self.page
+            .goto(url)
+            .await
+            .with_context(|| format!("Failed to navigate to {url}"))?
+            .wait_for_navigation()
+            .await
+            .with_context(|| format!("Page did not finish loading for {url}"))?
+            .sleep()
+            .await;
+        Ok(())
+    }
 }
 
-pub(super) fn round2(v: f64) -> f64 {
+fn round2(v: f64) -> f64 {
     (v * 100.0).round() / 100.0
 }
 

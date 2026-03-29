@@ -19,15 +19,7 @@ impl TradingView {
         symbol: &str,
     ) -> Result<EarningsRelease> {
         let url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/documents/?category=earnings");
-        self.page
-            .goto(&url)
-            .await
-            .with_context(|| format!("Failed to navigate to {url}"))?
-            .wait_for_navigation()
-            .await
-            .with_context(|| format!("Page did not finish loading for {url}"))?
-            .sleep()
-            .await;
+        self.goto(&url).await?;
 
         // Scan cards in DOM order (most recent first). Within each card prefer
         // 8-K over 10-K. Click the matching button and return date + form type.
@@ -117,6 +109,20 @@ mod tests {
 
         let release = scraper
             .fetch_earnings_release("NASDAQ", "TSLA")
+            .await
+            .expect("Failed to fetch earnings release");
+
+        println!("{release:#?}");
+
+        let release = scraper
+            .fetch_earnings_release("NASDAQ", "GOOG")
+            .await
+            .expect("Failed to fetch earnings release");
+
+        println!("{release:#?}");
+
+        let release = scraper
+            .fetch_earnings_release("NASDAQ", "AAPL")
             .await
             .expect("Failed to fetch earnings release");
 
