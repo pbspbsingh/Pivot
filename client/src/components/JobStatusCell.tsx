@@ -1,5 +1,5 @@
 import { ActionIcon, Badge, Group, Progress, Stack, Text, Tooltip } from '@mantine/core';
-import { IconPlayerPlay, IconAlertCircle } from '@tabler/icons-react';
+import { IconPlayerPlay, IconAlertCircle, IconRefresh } from '@tabler/icons-react';
 import type { JobStep, JobSummary } from '../types';
 
 const STEP_ORDER: JobStep[] = ['basic_info', 'earnings', 'forecast', 'document'];
@@ -41,18 +41,25 @@ export function JobStatusCell({ job, stepAvgMs, onAnalyze, onViewLog }: Props) {
 
   if (job.status === 'failed') {
     return (
-      <Tooltip label="View error log" position="left">
-        <Badge
-          color="red"
-          variant="light"
-          size="sm"
-          style={{ cursor: 'pointer' }}
-          leftSection={<IconAlertCircle size={10} />}
-          onClick={() => onViewLog(job.job_id)}
-        >
-          Failed
-        </Badge>
-      </Tooltip>
+      <Group gap={4} wrap="nowrap">
+        <Tooltip label="View error log" position="left">
+          <Badge
+            color="red"
+            variant="light"
+            size="sm"
+            style={{ cursor: 'pointer' }}
+            leftSection={<IconAlertCircle size={10} />}
+            onClick={() => onViewLog(job.job_id)}
+          >
+            Failed
+          </Badge>
+        </Tooltip>
+        <Tooltip label="Retry" position="left">
+          <ActionIcon variant="subtle" color="gray" size="sm" onClick={onAnalyze}>
+            <IconRefresh size={14} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
     );
   }
 
@@ -88,7 +95,9 @@ function computeProgress(
   if (completedIdx < 0) return { value: 0, label: null };
 
   const totalMs = STEP_ORDER.reduce((sum, s) => sum + (stepAvgMs[s] ?? 0), 0);
-  if (totalMs === 0) return { value: 0, label: null };
+  if (totalMs === 0) {
+    return { value: Math.round((completedIdx / STEP_ORDER.length) * 100), label: null };
+  }
 
   const doneMs = STEP_ORDER.slice(0, completedIdx).reduce((sum, s) => sum + (stepAvgMs[s] ?? 0), 0);
   const value = Math.round((doneMs / totalMs) * 100);

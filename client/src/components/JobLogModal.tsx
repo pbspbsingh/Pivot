@@ -56,7 +56,7 @@ export function JobLogModal({ jobId, symbol, onClose }: Props) {
                   <Table.Td>{row.attempt}</Table.Td>
                   <Table.Td c={row.status === 'success' ? 'teal' : 'red'}>{row.status}</Table.Td>
                   <Table.Td>{row.duration_ms != null ? `${(row.duration_ms / 1000).toFixed(1)}s` : '—'}</Table.Td>
-                  <Table.Td c="dimmed">{new Date(row.started_at).toLocaleTimeString()}</Table.Td>
+                  <Table.Td c="dimmed">{new Date(row.started_at + 'Z').toLocaleTimeString()}</Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>

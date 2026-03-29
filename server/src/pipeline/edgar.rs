@@ -191,12 +191,12 @@ struct RecentFilings {
 fn extract_description(html: &str) -> String {
     for row in split_table_rows(html) {
         let cells = extract_td_texts(row);
-        if cells.get(3).map(|t| t.trim()) == Some("8-K") {
-            if let Some(desc) = cells.get(1) {
-                let desc = desc.trim();
-                if !desc.is_empty() {
-                    return desc.to_string();
-                }
+        if cells.get(3).map(|t| t.trim()) == Some("8-K")
+            && let Some(desc) = cells.get(1)
+        {
+            let desc = desc.trim();
+            if !desc.is_empty() {
+                return desc.to_string();
             }
         }
     }

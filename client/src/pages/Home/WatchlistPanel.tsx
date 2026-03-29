@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActionIcon,
   Button,
@@ -17,6 +17,9 @@ import type { Stock, Watchlist } from '../../types';
 import { notifyError } from '../../utils/notify';
 import { JobStatusCell } from '../../components/JobStatusCell';
 import { JobLogModal } from '../../components/JobLogModal';
+import type { JobSummary } from '../../types';
+
+const EMPTY_JOBS: Record<string, JobSummary> = {};
 
 type SortKey = 'symbol' | 'sector' | 'industry' | 'score' | 'analyzed_at';
 
@@ -51,7 +54,8 @@ export function WatchlistPanel({ watchlist }: Props) {
   const addWatchlistStocks = useAppStore((s) => s.addWatchlistStocks);
   const removeWatchlistStock = useAppStore((s) => s.removeWatchlistStock);
   const setWatchlistJobs = useAppStore((s) => s.setWatchlistJobs);
-  const jobsBySymbol = useAppStore((s) => s.jobsByWatchlist[watchlist.id]) ?? {};
+  const updateJob = useAppStore((s) => s.updateJob);
+  const jobsBySymbol = useAppStore((s) => s.jobsByWatchlist[watchlist.id]) ?? EMPTY_JOBS;
   const stepAvgMs = useAppStore((s) => s.stepAvgMs);
 
   const [stocks, setStocks] = useState<Stock[]>([]);
@@ -61,6 +65,7 @@ export function WatchlistPanel({ watchlist }: Props) {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [logJobId, setLogJobId] = useState<number | null>(null);
   const [logSymbol, setLogSymbol] = useState('');
+  const prevJobsRef = useRef<typeof jobsBySymbol>({});
 
   const scoreLabel = watchlist.is_default ? 'EP Score' : 'VCP Score';
 
@@ -82,6 +87,20 @@ export function WatchlistPanel({ watchlist }: Props) {
       .then((data) => setWatchlistJobs({ watchlistId: watchlist.id, ...data }))
       .catch((e: Error) => notifyError(e.message));
   }, [watchlist.id, setWatchlistStocks, setWatchlistJobs]);
+
+  useEffect(() => {
+    const prev = prevJobsRef.current;
+    const newlyCompleted = Object.values(jobsBySymbol).some(
+      (job) => job.status === 'completed' && prev[job.symbol]?.status !== 'completed',
+    );
+    if (newlyCompleted) {
+      watchlistApi
+        .listStocks(watchlist.id)
+        .then(setStocks)
+        .catch((e: Error) => notifyError(e.message));
+    }
+    prevJobsRef.current = jobsBySymbol;
+  }, [jobsBySymbol, watchlist.id]);
 
   function toggleSort(key: SortKey) {
     if (sortBy === key) {
@@ -158,6 +177,10 @@ export function WatchlistPanel({ watchlist }: Props) {
   async function handleAnalyze(symbol: string) {
     try {
       await jobsApi.analyze(watchlist.id, symbol);
+      const current = jobsBySymbol[symbol];
+      if (current) {
+        updateJob({ ...current, status: 'pending', step: 'queued' });
+      }
     } catch (e) {
       notifyError((e as Error).message);
     }
@@ -200,7 +223,7 @@ export function WatchlistPanel({ watchlist }: Props) {
                 <Table.Td c="dimmed">{stock.industry ?? '—'}</Table.Td>
                 <Table.Td c="dimmed">—</Table.Td>
                 <Table.Td c="dimmed">
-                  {stock.analyzed_at ? new Date(stock.analyzed_at).toLocaleString() : '—'}
+                  {stock.analyzed_at ? new Date(stock.analyzed_at + 'Z').toLocaleString() : '—'}
                 </Table.Td>
                 <Table.Td>
                   {!isDeleted && (
