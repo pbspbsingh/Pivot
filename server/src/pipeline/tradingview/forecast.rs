@@ -78,11 +78,11 @@ impl TradingView {
                 const t = el.textContent;
                 if (!t.includes('max estimate')) continue;
                 const cm = t.match(/The\s+(\d+)\s+analyst/);
-                const mx = t.match(/max estimate of\s+([\d.]+)/);
-                const mn = t.match(/min estimate of\s+([\d.]+)/);
+                const mx = t.match(/max estimate of\s+([\d,.]+)/);
+                const mn = t.match(/min estimate of\s+([\d,.]+)/);
                 if (cm) pt_count = parseInt(cm[1]);
-                if (mx) pt_max = parseFloat(mx[1]);
-                if (mn) pt_min = parseFloat(mn[1]);
+                if (mx) pt_max = parseFloat(mx[1].replace(/,/g, ''));
+                if (mn) pt_min = parseFloat(mn[1].replace(/,/g, ''));
                 break;
             }
 

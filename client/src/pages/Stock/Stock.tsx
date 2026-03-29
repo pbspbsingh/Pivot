@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { ActionIcon, Box, Group, Progress, Text, Tooltip } from '@mantine/core';
-import { IconList } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
+import { Accordion, ActionIcon, Badge, Box, Code, Divider, Group, Progress, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
+import { IconList, IconCopy, IconCheck } from '@tabler/icons-react';
 import { useParams } from 'react-router-dom';
 import { useAppStore } from '../../store';
 import { JobLogModal } from '../../components/JobLogModal';
 import { computeProgress } from '../../utils/jobProgress';
+import { jobsApi } from '../../api/jobs';
+import type { ForecastData, StockAnalysis } from '../../types';
 
 const STEP_LABELS: Record<string, string> = {
   queued: 'Queued',
@@ -15,50 +17,188 @@ const STEP_LABELS: Record<string, string> = {
   done: 'Done',
 };
 
+function TvChart({ exchange, symbol }: { exchange: string; symbol: string }) {
+  const src = `https://www.tradingview.com/widgetembed/?symbol=${exchange}%3A${symbol}&interval=D&theme=dark&style=1&locale=en&hide_side_toolbar=0&allow_symbol_change=0&save_image=0`;
+  return <iframe src={src} style={{ width: '100%', height: '100%', border: 'none' }} allowFullScreen />;
+}
+
+function consensusColor(consensus: string | null) {
+  if (!consensus) return 'gray';
+  const c = consensus.toLowerCase();
+  if (c.includes('strong buy')) return 'teal';
+  if (c.includes('buy')) return 'green';
+  if (c.includes('strong sell')) return 'red';
+  if (c.includes('sell')) return 'orange';
+  return 'gray';
+}
+
+function fmt(n: number | null | undefined, decimals = 2) {
+  if (n == null) return '—';
+  return n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function BasicInfoPanel({ analysis, symbol }: { analysis: StockAnalysis; symbol: string }) {
+  const { basic_info, forecast } = analysis;
+  const f: ForecastData = forecast;
+  const total = f.rating_total_analysts ?? 0;
+
+  const ratings = [
+    { label: 'Strong Buy', value: f.rating_strong_buy ?? 0, color: 'teal' },
+    { label: 'Buy', value: f.rating_buy ?? 0, color: 'green' },
+    { label: 'Hold', value: f.rating_hold ?? 0, color: 'yellow' },
+    { label: 'Sell', value: f.rating_sell ?? 0, color: 'orange' },
+    { label: 'Strong Sell', value: f.rating_strong_sell ?? 0, color: 'red' },
+  ];
+
+  const priceMin = f.price_target_min ?? 0;
+  const priceMax = f.price_target_max ?? 0;
+  const priceAvg = f.price_target_average ?? 0;
+  const priceCurrent = f.price_current ?? 0;
+  const priceRange = priceMax - priceMin;
+  const currentPct = priceRange > 0 ? ((priceCurrent - priceMin) / priceRange) * 100 : 0;
+  const avgPct = priceRange > 0 ? ((priceAvg - priceMin) / priceRange) * 100 : 0;
+
+  return (
+    <ScrollArea style={{ height: '100%' }} p="md">
+      <Stack gap="md">
+        {/* Basic info */}
+        <Stack gap={4}>
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed">Symbol</Text>
+            <Text size="xs" fw={600} ff="monospace">{analysis.exchange}:{symbol}</Text>
+          </Group>
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed">Sector</Text>
+            <Text size="xs">{basic_info.sector}</Text>
+          </Group>
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed">Industry</Text>
+            <Text size="xs">{basic_info.industry}</Text>
+          </Group>
+        </Stack>
+
+        <Divider />
+
+        {/* Consensus */}
+        <Group justify="space-between" align="center">
+          <Stack gap={0}>
+            <Text size="xs" c="dimmed">Consensus</Text>
+            <Badge color={consensusColor(f.rating_consensus)} variant="light" size="sm">
+              {f.rating_consensus ?? '—'}
+            </Badge>
+          </Stack>
+          <Stack gap={0} align="flex-end">
+            <Text size="xs" c="dimmed">{f.rating_analyst_count ?? f.price_target_analyst_count} analysts</Text>
+            <Text size="xs" c="dimmed">{f.rating_total_analysts} ratings</Text>
+          </Stack>
+        </Group>
+
+        {/* Ratings bar */}
+        {total > 0 && (
+          <Stack gap={4}>
+            <Group gap={2} style={{ borderRadius: 4, overflow: 'hidden' }}>
+              {ratings.map((r) => r.value > 0 && (
+                <Tooltip key={r.label} label={`${r.label}: ${r.value}`}>
+                  <Box
+                    style={{
+                      flex: r.value,
+                      height: 8,
+                      background: `var(--mantine-color-${r.color}-6)`,
+                    }}
+                  />
+                </Tooltip>
+              ))}
+            </Group>
+            <Group justify="space-between">
+              {ratings.map((r) => r.value > 0 && (
+                <Text key={r.label} size="xs" c="dimmed">{r.value}</Text>
+              ))}
+            </Group>
+          </Stack>
+        )}
+
+        <Divider />
+
+        {/* Price target */}
+        <Stack gap={6}>
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed" fw={500}>Price Target</Text>
+            <Text size="xs" c="teal">${fmt(priceAvg)} (↑{fmt(f.price_target_average_upside_pct)}%)</Text>
+          </Group>
+          {/* Range bar */}
+          <Box style={{ position: 'relative', height: 6, background: 'var(--mantine-color-dark-4)', borderRadius: 3, marginTop: 16, overflow: 'visible' }}>
+            {/* Current price marker + label */}
+            <Box style={{
+              position: 'absolute',
+              left: `${Math.min(Math.max(currentPct, 0), 100)}%`,
+              transform: 'translateX(-50%)',
+            }}>
+              <Text size="xs" c="dimmed" title={`Current price: $${fmt(priceCurrent)}`} style={{ position: 'absolute', bottom: 10, whiteSpace: 'nowrap', transform: 'translateX(-50%)' }}>
+                ${fmt(priceCurrent)}
+              </Text>
+              <Box style={{ width: 2, height: 10, background: 'var(--mantine-color-gray-4)', borderRadius: 1, marginTop: -2 }} />
+            </Box>
+            {/* Avg target marker + label */}
+            <Box style={{
+              position: 'absolute',
+              left: `${Math.min(Math.max(avgPct, 0), 100)}%`,
+              transform: 'translateX(-50%)',
+            }}>
+              <Text size="xs" c="teal" title={`Avg price target: $${fmt(priceAvg)}`} style={{ position: 'absolute', bottom: 10, whiteSpace: 'nowrap', transform: 'translateX(-50%)' }}>
+                ${fmt(priceAvg)}
+              </Text>
+              <Box style={{ width: 2, height: 10, background: 'var(--mantine-color-teal-4)', borderRadius: 1, marginTop: -2 }} />
+            </Box>
+          </Box>
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed" title={`Min price target: $${fmt(priceMin)}`}>${fmt(priceMin)}</Text>
+            <Text size="xs" c="dimmed" title={`Max price target: $${fmt(priceMax)}`}>${fmt(priceMax)}</Text>
+          </Group>
+        </Stack>
+
+
+        {basic_info.description && (
+          <>
+            <Divider />
+            <Text size="xs" c="dimmed" style={{ lineHeight: 1.6 }}>{basic_info.description}</Text>
+          </>
+        )}
+      </Stack>
+    </ScrollArea>
+  );
+}
+
 export function Stock() {
   const { watchlistId, symbol } = useParams<{ watchlistId: string; symbol: string }>();
-  const job = useAppStore(
-    (s) => s.jobsByWatchlist[Number(watchlistId)]?.[symbol ?? ''],
-  );
-
+  const job = useAppStore((s) => s.jobsByWatchlist[Number(watchlistId)]?.[symbol ?? '']);
   const stepAvgMs = useAppStore((s) => s.stepAvgMs);
   const [logOpen, setLogOpen] = useState(false);
+  const [analysis, setAnalysis] = useState<StockAnalysis | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const isActive = job?.status === 'pending' || job?.status === 'running';
   const isFailed = job?.status === 'failed';
 
+  useEffect(() => {
+    if (!watchlistId || !symbol) return;
+    jobsApi.getAnalysis(Number(watchlistId), symbol).then(setAnalysis).catch(() => {});
+  }, [watchlistId, symbol]);
+
   return (
-    <Box>
+    <Box style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {(isActive || isFailed) && (
-        <Box
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 10,
-            background: 'var(--mantine-color-dark-7)',
-            borderBottom: `1px solid var(--mantine-color-${isFailed ? 'red' : 'blue'}-7)`,
-          }}
-        >
+        <Box style={{
+          position: 'sticky', top: 0, zIndex: 10,
+          background: 'var(--mantine-color-dark-7)',
+          borderBottom: `1px solid var(--mantine-color-${isFailed ? 'red' : 'blue'}-7)`,
+        }}>
           {!isFailed && (() => {
-            const { value } = job.status === 'pending'
-              ? { value: 0 }
-              : computeProgress(job.step, stepAvgMs);
-            return (
-              <Progress
-                value={value}
-                animated={value === 0}
-                size={2}
-                color="blue.4"
-                radius={0}
-              />
-            );
+            const { value } = job.status === 'pending' ? { value: 0 } : computeProgress(job.step, stepAvgMs);
+            return <Progress value={value} animated={value === 0} size={2} color="blue.4" radius={0} />;
           })()}
           <Group px="md" py={4} justify="space-between">
             <Text size="xs" c={isFailed ? 'red.3' : 'blue.3'}>
-              {isFailed
-                ? `Failed — ${job.error ?? 'unknown error'}`
-                : job.status === 'pending'
-                  ? 'Queued'
-                  : (STEP_LABELS[job.step] ?? job.step)}
+              {isFailed ? `Failed — ${job.error ?? 'unknown error'}` : job.status === 'pending' ? 'Queued' : (STEP_LABELS[job.step] ?? job.step)}
             </Text>
             <Tooltip label="View logs" position="left">
               <ActionIcon variant="subtle" color={isFailed ? 'red' : 'blue'} size="xs" onClick={() => setLogOpen(true)}>
@@ -68,9 +208,50 @@ export function Stock() {
           </Group>
         </Box>
       )}
-      <Box p="md">
-        <Text fw={700} size="xl">{symbol}</Text>
-      </Box>
+
+      {analysis && (
+        <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          <Box style={{ flex: 3, height: 500 }}>
+            <TvChart exchange={analysis.exchange} symbol={symbol!} />
+          </Box>
+          <Box style={{ flex: 1, borderLeft: '1px solid var(--mantine-color-dark-4)', height: 500 }}>
+            <BasicInfoPanel analysis={analysis} symbol={symbol!} />
+          </Box>
+        </Box>
+      )}
+
+      {analysis && (
+        <Accordion variant="separated" mt="xs">
+          <Accordion.Item value="raw">
+            <Accordion.Control py={4} px="xs">
+              <Group justify="space-between" pr="xs">
+                <Text size="xs" c="dimmed">Raw analysis data</Text>
+                <Tooltip label={copied ? 'Copied!' : 'Copy JSON'} position="left">
+                  <ActionIcon
+                    variant="subtle"
+                    color={copied ? 'teal' : 'gray'}
+                    size="xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(JSON.stringify(analysis, null, 2));
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                  >
+                    {copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Code block fz="xs" style={{ whiteSpace: 'pre', maxHeight: 400, overflow: 'auto' }}>
+                {JSON.stringify(analysis, null, 2)}
+              </Code>
+            </Accordion.Panel>
+          </Accordion.Item>
+        </Accordion>
+      )}
+
       <JobLogModal
         jobId={logOpen && job ? job.job_id : null}
         symbol={symbol ?? ''}

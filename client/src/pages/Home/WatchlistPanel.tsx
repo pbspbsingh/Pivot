@@ -10,6 +10,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { IconRefresh, IconTrash, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
+import { NavLink as RouterNavLink } from 'react-router-dom';
 import { watchlistApi } from '../../api/watchlists';
 import { jobsApi } from '../../api/jobs';
 import { useAppStore } from '../../store';
@@ -222,7 +223,11 @@ export function WatchlistPanel({ watchlist }: Props) {
                 key={stock.symbol}
                 style={{ opacity: isDeleted ? 0.4 : 1, textDecoration: isDeleted ? 'line-through' : 'none' }}
               >
-                <Table.Td fw={600}>{stock.symbol}</Table.Td>
+                <Table.Td fw={500}>
+                  <RouterNavLink to={`/stock/${watchlist.id}/${stock.symbol}`} style={{ color: 'var(--mantine-color-blue-4)', textDecoration: 'none' }}>
+                    {stock.symbol}
+                  </RouterNavLink>
+                </Table.Td>
                 <Table.Td c="dimmed">{stock.sector ?? '—'}</Table.Td>
                 <Table.Td c="dimmed">{stock.industry ?? '—'}</Table.Td>
                 <Table.Td c="dimmed">—</Table.Td>

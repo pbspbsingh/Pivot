@@ -5,7 +5,10 @@ use std::collections::HashMap;
 use crate::{
     api::error::{ApiError, ApiResult},
     db,
-    models::PipelineStep,
+    models::{
+        PipelineStep,
+        pipeline::{EarningsData, EarningsRelease, ForecastData, StockBasicInfo},
+    },
 };
 
 #[derive(Serialize)]
@@ -52,4 +55,34 @@ pub async fn enqueue_stock(
 pub async fn get_job_log(Path(job_id): Path<i64>) -> ApiResult<impl axum::response::IntoResponse> {
     let log = db::jobs::get_job_log(job_id).await?;
     Ok(Json(log))
+}
+
+#[derive(Serialize)]
+pub struct StockAnalysisResponse {
+    pub exchange: String,
+    pub basic_info: StockBasicInfo,
+    pub earnings: EarningsData,
+    pub forecast: ForecastData,
+    pub document: EarningsRelease,
+    pub analyzed_at: String,
+}
+
+pub async fn get_stock_analysis(
+    Path((watchlist_id, symbol)): Path<(i64, String)>,
+) -> ApiResult<impl axum::response::IntoResponse> {
+    let symbol = symbol.to_uppercase();
+    let exchange = db::watchlists::get_exchange(&symbol)
+        .await?
+        .ok_or_else(|| ApiError::NotFound(format!("{symbol} not found")))?;
+    let analysis = db::analysis::get(&symbol, watchlist_id)
+        .await?
+        .ok_or_else(|| ApiError::NotFound("No analysis data yet".into()))?;
+    Ok(Json(StockAnalysisResponse {
+        exchange,
+        basic_info: analysis.basic_info.0,
+        earnings: analysis.earnings.0,
+        forecast: analysis.forecast.0,
+        document: analysis.document.0,
+        analyzed_at: analysis.analyzed_at.to_string(),
+    }))
 }

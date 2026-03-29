@@ -45,6 +45,10 @@ pub fn router() -> Router {
             post(jobs::enqueue_stock),
         )
         .route("/api/jobs/{job_id}/log", get(jobs::get_job_log))
+        .route(
+            "/api/watchlists/{id}/stocks/{symbol}/analysis",
+            get(jobs::get_stock_analysis),
+        )
         .layer(CorsLayer::permissive())
 }
 
