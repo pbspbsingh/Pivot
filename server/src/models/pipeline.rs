@@ -1,3 +1,5 @@
+use chrono::NaiveDate;
+
 #[derive(Debug)]
 pub struct StockBasicInfo {
     pub sector: String,
@@ -51,7 +53,11 @@ pub struct ForecastData {
     pub rating_consensus: Option<String>,
 }
 
-pub struct EarningsRelease {}
+#[derive(Debug)]
+pub struct EarningsRelease {
+    day: NaiveDate,
+    earnings_release: String,
+}
 
 #[derive(Debug)]
 pub struct EightK {
