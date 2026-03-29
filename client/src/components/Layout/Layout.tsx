@@ -142,7 +142,7 @@ export function Layout() {
                       <NavLink
                         label={symbol}
                         component={RouterNavLink}
-                        to={`/stock/${symbol}`}
+                        to={`/stock/${w.id}/${symbol}`}
                         styles={{
                           label: { fontFamily: 'monospace', fontSize: 11 },
                           root: { padding: '2px 8px' },

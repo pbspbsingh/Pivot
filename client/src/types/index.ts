@@ -38,10 +38,12 @@ export interface WatchlistJobsResponse {
   step_avg_ms: Record<string, number>;
 }
 
+export type AttemptStatus = 'success' | 'failed';
+
 export interface StepAttempt {
-  step: string;
+  step: JobStep;
   attempt: number;
-  status: 'success' | 'failed';
+  status: AttemptStatus;
   error: string | null;
   duration_ms: number | null;
   started_at: string;

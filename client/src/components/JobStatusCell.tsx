@@ -1,8 +1,8 @@
 import { ActionIcon, Badge, Group, Progress, Stack, Text, Tooltip } from '@mantine/core';
 import { IconPlayerPlay, IconAlertCircle, IconRefresh } from '@tabler/icons-react';
-import type { JobStep, JobSummary } from '../types';
+import type { JobSummary } from '../types';
+import { computeProgress } from '../utils/jobProgress';
 
-const STEP_ORDER: JobStep[] = ['basic_info', 'earnings', 'forecast', 'document'];
 
 const STEP_LABELS: Record<string, string> = {
   queued: 'Queued',
@@ -87,23 +87,3 @@ export function JobStatusCell({ job, stepAvgMs, onAnalyze, onViewLog }: Props) {
   );
 }
 
-function computeProgress(
-  currentStep: JobStep,
-  stepAvgMs: Record<string, number>,
-): { value: number; label: string | null } {
-  const completedIdx = STEP_ORDER.indexOf(currentStep);
-  if (completedIdx < 0) return { value: 0, label: null };
-
-  const totalMs = STEP_ORDER.reduce((sum, s) => sum + (stepAvgMs[s] ?? 0), 0);
-  if (totalMs === 0) {
-    return { value: Math.round((completedIdx / STEP_ORDER.length) * 100), label: null };
-  }
-
-  const doneMs = STEP_ORDER.slice(0, completedIdx).reduce((sum, s) => sum + (stepAvgMs[s] ?? 0), 0);
-  const value = Math.round((doneMs / totalMs) * 100);
-
-  const remainingMs = totalMs - doneMs;
-  const label = remainingMs > 0 ? `~${Math.ceil(remainingMs / 1000)}s` : null;
-
-  return { value, label };
-}

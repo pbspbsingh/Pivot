@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::{
     db::pool,
-    models::{JobStatus, PipelineStep},
+    models::{AttemptStatus, JobStatus, PipelineStep},
 };
 
 #[derive(Debug, FromRow)]
@@ -34,9 +34,9 @@ pub struct JobSummary {
 
 #[derive(Debug, Serialize, FromRow)]
 pub struct StepAttempt {
-    pub step: String,
+    pub step: PipelineStep,
     pub attempt: i64,
-    pub status: String,
+    pub status: AttemptStatus,
     pub error: Option<String>,
     pub duration_ms: Option<i64>,
     pub started_at: NaiveDateTime,
@@ -249,7 +249,11 @@ pub async fn record_attempt(
     error: Option<&str>,
     duration_ms: Option<i64>,
 ) -> Result<()> {
-    let status = if success { "success" } else { "failed" };
+    let status = if success {
+        AttemptStatus::Success
+    } else {
+        AttemptStatus::Failed
+    };
     sqlx::query!(
         "INSERT INTO job_step_attempts (job_id, step, attempt, status, error, duration_ms)
          VALUES (?, ?, ?, ?, ?, ?)",
@@ -287,9 +291,14 @@ pub async fn list_jobs_for_watchlist(watchlist_id: i64) -> Result<Vec<JobSummary
 pub async fn get_step_avg_durations() -> Result<HashMap<PipelineStep, i64>> {
     let rows = sqlx::query!(
         r#"SELECT step as "step!: PipelineStep", AVG(duration_ms) as "avg_ms: f64"
-           FROM job_step_attempts
-           WHERE status = 'success' AND duration_ms IS NOT NULL
+           FROM (
+               SELECT step, duration_ms, ROW_NUMBER() OVER (PARTITION BY step ORDER BY id DESC) as rn
+               FROM job_step_attempts
+               WHERE status = ? AND duration_ms IS NOT NULL
+           )
+           WHERE rn <= 5
            GROUP BY step"#,
+        AttemptStatus::Success,
     )
     .fetch_all(pool())
     .await?;
@@ -303,9 +312,21 @@ pub async fn get_step_avg_durations() -> Result<HashMap<PipelineStep, i64>> {
 pub async fn get_job_log(job_id: i64) -> Result<Vec<StepAttempt>> {
     let rows = sqlx::query_as!(
         StepAttempt,
-        r#"SELECT step, attempt, status, error, duration_ms, started_at
-           FROM job_step_attempts WHERE job_id = ? ORDER BY id ASC"#,
+        r#"SELECT step as "step!: PipelineStep", attempt, status as "status!: AttemptStatus", error, duration_ms, started_at
+           FROM job_step_attempts
+           WHERE job_id = ? AND (
+               status = ?
+               OR id IN (
+                   SELECT id FROM job_step_attempts
+                   WHERE job_id = ? AND status = ?
+                   ORDER BY id DESC LIMIT 5
+               )
+           )
+           ORDER BY id ASC"#,
         job_id,
+        AttemptStatus::Success,
+        job_id,
+        AttemptStatus::Failed,
     )
     .fetch_all(pool())
     .await?;
