@@ -1,3 +1,4 @@
+pub mod edgar;
 pub mod watchlists;
 
 use anyhow::Result;

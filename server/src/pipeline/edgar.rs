@@ -30,15 +30,8 @@ impl Edgar {
     /// cache. On a miss, downloads the SEC tickers JSON and persists the result.
     pub async fn resolve_cik(&self, symbol: &str) -> Result<String> {
         let symbol = symbol.to_uppercase();
-        let pool = db::pool();
 
-        // Check cache first.
-        let cached = sqlx::query_scalar!("SELECT cik FROM cik_cache WHERE symbol = ?", symbol)
-            .fetch_optional(pool)
-            .await
-            .context("Failed to query cik_cache")?;
-
-        if let Some(cik) = cached {
+        if let Some(cik) = db::edgar::get_cik(&symbol).await? {
             return Ok(cik);
         }
 
@@ -68,16 +61,7 @@ impl Edgar {
             .with_context(|| format!("Ticker {symbol} not found in SEC tickers list"))?;
 
         let cik = format!("{cik:010}");
-
-        sqlx::query!(
-            "INSERT OR REPLACE INTO cik_cache (symbol, cik) VALUES (?, ?)",
-            symbol,
-            cik
-        )
-        .execute(pool)
-        .await
-        .context("Failed to insert into cik_cache")?;
-
+        db::edgar::set_cik(&symbol, &cik).await?;
         Ok(cik)
     }
 
@@ -200,16 +184,18 @@ struct RecentFilings {
 
 /// Extracts the primary document description from the filing index HTML.
 /// Falls back to "8-K" if not found.
+///
+/// The filing index table has columns: Seq | Description | Document | Type | Size.
+/// We find the row whose Type cell (index 3) is exactly "8-K" and return its
+/// Description cell (index 1), which is typically "CURRENT REPORT".
 fn extract_description(html: &str) -> String {
-    // The description appears as the first cell in the documents table after
-    // the header. We look for "8-K" or "CURRENT REPORT" in the text.
-    for line in html.lines() {
-        let line = line.trim();
-        if line.contains("CURRENT REPORT") || line.contains("8-K") {
-            if let Some(text) = strip_tags(line) {
-                let text = text.trim().to_string();
-                if !text.is_empty() {
-                    return text;
+    for row in split_table_rows(html) {
+        let cells = extract_td_texts(row);
+        if cells.get(3).map(|t| t.trim()) == Some("8-K") {
+            if let Some(desc) = cells.get(1) {
+                let desc = desc.trim();
+                if !desc.is_empty() {
+                    return desc.to_string();
                 }
             }
         }
@@ -219,27 +205,72 @@ fn extract_description(html: &str) -> String {
 
 /// Scans the filing index HTML for Exhibit 99.1 and 99.2 filenames.
 /// Returns (ex99_1_filename, ex99_2_filename).
+///
+/// Operates on whole `<tr>` blocks rather than individual lines so that
+/// exhibit type and href can span multiple lines in the HTML.
 fn extract_exhibit_filenames(html: &str) -> (Option<String>, Option<String>) {
     let mut ex99_1 = None;
     let mut ex99_2 = None;
 
-    // Each exhibit row looks like:
-    //   <td>EX-99.1</td> ... <td><a href="filename.htm">filename.htm</a></td>
-    // We scan for the exhibit type then grab the nearest href on the same line.
-    for line in html.lines() {
-        let line_lower = line.to_lowercase();
-        if line_lower.contains("ex-99.1") || line_lower.contains("exhibit 99.1") {
-            if let Some(href) = extract_href(line) {
-                ex99_1 = Some(href);
-            }
-        } else if line_lower.contains("ex-99.2") || line_lower.contains("exhibit 99.2") {
-            if let Some(href) = extract_href(line) {
-                ex99_2 = Some(href);
-            }
+    for row in split_table_rows(html) {
+        let cells = extract_td_texts(row);
+        // Prefer the Type column (index 3) for a precise match; fall back to
+        // searching the entire row string for malformed/non-standard indexes.
+        let type_text = cells
+            .get(3)
+            .map(|s| s.to_lowercase())
+            .unwrap_or_else(|| row.to_lowercase());
+
+        if ex99_1.is_none() && type_text.contains("ex-99.1") {
+            ex99_1 = extract_href(row);
+        } else if ex99_2.is_none() && type_text.contains("ex-99.2") {
+            ex99_2 = extract_href(row);
         }
     }
 
     (ex99_1, ex99_2)
+}
+
+/// Splits `html` into `<tr>…</tr>` chunks (case-insensitive).
+fn split_table_rows(html: &str) -> Vec<&str> {
+    let mut rows = Vec::new();
+    let lower = html.to_lowercase();
+    let mut pos = 0;
+
+    while let Some(rel_start) = lower[pos..].find("<tr") {
+        let abs_start = pos + rel_start;
+        match lower[abs_start..].find("</tr>") {
+            Some(rel_end) => {
+                let abs_end = abs_start + rel_end + 5; // +5 for "</tr>"
+                rows.push(&html[abs_start..abs_end]);
+                pos = abs_end;
+            }
+            None => break,
+        }
+    }
+    rows
+}
+
+/// Extracts the stripped-text content of each `<td>` in `row`.
+fn extract_td_texts(row: &str) -> Vec<String> {
+    let mut cells = Vec::new();
+    let lower = row.to_lowercase();
+    let mut pos = 0;
+
+    while let Some(rel_start) = lower[pos..].find("<td") {
+        let abs_start = pos + rel_start;
+        let Some(rel_tag_end) = lower[abs_start..].find('>') else {
+            break;
+        };
+        let content_start = abs_start + rel_tag_end + 1;
+        let Some(rel_close) = lower[content_start..].find("</td>") else {
+            break;
+        };
+        let content = &row[content_start..content_start + rel_close];
+        cells.push(strip_tags(content).unwrap_or_default());
+        pos = content_start + rel_close + 5;
+    }
+    cells
 }
 
 fn extract_href(s: &str) -> Option<String> {
