@@ -1,20 +1,21 @@
 use chrono::NaiveDate;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StockBasicInfo {
     pub sector: String,
     pub industry: String,
     pub description: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Periodicity {
     Annual,
     Quarterly,
     HalfYearly,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct EarningsEntry {
     pub period_label: String,
     pub periodicity: Periodicity,
@@ -26,16 +27,14 @@ pub struct EarningsEntry {
     pub revenue_surprise_pct: Option<f64>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct EarningsData {
-    // EPS + Revenue by period type
     pub quarterly_earnings: Vec<EarningsEntry>,
     pub annual_earnings: Vec<EarningsEntry>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ForecastData {
-    // Price target
     pub price_current: Option<f64>,
     pub price_target_average: Option<f64>,
     pub price_target_average_upside_pct: Option<f64>,
@@ -43,7 +42,6 @@ pub struct ForecastData {
     pub price_target_min: Option<f64>,
     pub price_target_analyst_count: Option<u32>,
 
-    // Analyst rating
     pub rating_strong_buy: Option<u32>,
     pub rating_buy: Option<u32>,
     pub rating_hold: Option<u32>,
@@ -53,13 +51,13 @@ pub struct ForecastData {
     pub rating_consensus: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct EarningsRelease {
     pub day: NaiveDate,
     pub earnings_release: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct EightK {
     pub filed_at: chrono::NaiveDate,
     pub description: String,

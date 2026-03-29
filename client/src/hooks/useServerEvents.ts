@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../store';
+import type { JobSummary } from '../types';
 
 const MIN_RETRY = 1000;
 const MAX_RETRY = 30000;
@@ -8,6 +9,7 @@ const HEARTBEAT_TIMEOUT = 15000;
 export function useServerEvents() {
   const setConnected = useAppStore((s) => s.setConnected);
   const setServerTime = useAppStore((s) => s.setServerTime);
+  const updateJob = useAppStore((s) => s.updateJob);
 
   useEffect(() => {
     let es: EventSource | null = null;
@@ -39,6 +41,15 @@ export function useServerEvents() {
         setServerTime(e.data);
       });
 
+      es.addEventListener('job', (e: MessageEvent) => {
+        try {
+          const job = JSON.parse(e.data) as JobSummary;
+          updateJob(job);
+        } catch {
+          // ignore malformed events
+        }
+      });
+
       es.onerror = () => {
         clearTimeout(heartbeatTimeout);
         setConnected(false);
@@ -55,5 +66,5 @@ export function useServerEvents() {
       clearTimeout(heartbeatTimeout);
       es?.close();
     };
-  }, [setConnected, setServerTime]);
+  }, [setConnected, setServerTime, updateJob]);
 }

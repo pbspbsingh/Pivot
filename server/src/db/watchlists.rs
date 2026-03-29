@@ -146,6 +146,26 @@ pub async fn soft_delete_stock(watchlist_id: i64, symbol: &str) -> Result<()> {
     Ok(())
 }
 
+/// Returns (symbol, watchlist_id) for every non-deleted stock across all watchlists.
+/// Used by the queue worker on startup to enqueue all active tickers.
+pub async fn list_all_active_stocks() -> Result<Vec<(String, i64)>> {
+    let rows =
+        sqlx::query!("SELECT symbol, watchlist_id FROM watchlist_stocks WHERE deleted_at IS NULL")
+            .fetch_all(pool())
+            .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.symbol, r.watchlist_id))
+        .collect())
+}
+
+pub async fn get_exchange(symbol: &str) -> Result<Option<String>> {
+    let row = sqlx::query!("SELECT exchange FROM stocks WHERE symbol = ?", symbol)
+        .fetch_optional(pool())
+        .await?;
+    Ok(row.map(|r| r.exchange))
+}
+
 pub async fn restore_stock(watchlist_id: i64, symbol: &str) -> Result<()> {
     sqlx::query!(
         "UPDATE watchlist_stocks SET deleted_at = NULL WHERE watchlist_id = ? AND symbol = ?",

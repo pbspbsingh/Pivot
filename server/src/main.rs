@@ -22,6 +22,7 @@ async fn main() -> Result<()> {
 
     db::init(&CONFIG.database.path).await?;
     sse::init();
+    pipeline::queue::start();
 
     let addr = format!("0.0.0.0:{}", CONFIG.server.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;

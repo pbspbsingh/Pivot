@@ -1,4 +1,5 @@
 pub mod error;
+mod jobs;
 mod watchlists;
 
 use axum::{
@@ -35,6 +36,15 @@ pub fn router() -> Router {
             "/api/watchlists/{id}/stocks/{symbol}/restore",
             post(watchlists::restore_stock),
         )
+        .route(
+            "/api/watchlists/{id}/stocks/jobs",
+            get(jobs::list_watchlist_jobs),
+        )
+        .route(
+            "/api/watchlists/{id}/stocks/{symbol}/analyze",
+            post(jobs::enqueue_stock),
+        )
+        .route("/api/jobs/{job_id}/log", get(jobs::get_job_log))
         .layer(CorsLayer::permissive())
 }
 

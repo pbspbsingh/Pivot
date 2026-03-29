@@ -136,6 +136,15 @@ pub async fn add_stocks(
     if !new_stocks.is_empty() {
         db::watchlists::add_stocks(id, &new_stocks).await?;
         tracing::info!(watchlist_id = id, added = ?added, "Stocks added to watchlist");
+        for symbol in &added {
+            if let Err(e) = db::jobs::enqueue(symbol, id).await {
+                tracing::warn!(
+                    watchlist_id = id,
+                    symbol,
+                    "Failed to enqueue new stock: {e}"
+                );
+            }
+        }
     }
     if !failed.is_empty() {
         tracing::warn!(watchlist_id = id, failed = ?failed, "Symbols not found on Yahoo Finance");

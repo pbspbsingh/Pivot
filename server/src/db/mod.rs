@@ -1,4 +1,5 @@
 pub mod edgar;
+pub mod jobs;
 pub mod watchlists;
 
 use anyhow::Result;

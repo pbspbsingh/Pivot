@@ -11,9 +11,12 @@ import {
 } from '@mantine/core';
 import { IconRefresh, IconTrash, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 import { watchlistApi } from '../../api/watchlists';
+import { jobsApi } from '../../api/jobs';
 import { useAppStore } from '../../store';
 import type { Stock, Watchlist } from '../../types';
 import { notifyError } from '../../utils/notify';
+import { JobStatusCell } from '../../components/JobStatusCell';
+import { JobLogModal } from '../../components/JobLogModal';
 
 type SortKey = 'symbol' | 'sector' | 'industry' | 'score' | 'score_updated_at';
 
@@ -47,12 +50,17 @@ export function WatchlistPanel({ watchlist }: Props) {
   const setWatchlistStocks = useAppStore((s) => s.setWatchlistStocks);
   const addWatchlistStocks = useAppStore((s) => s.addWatchlistStocks);
   const removeWatchlistStock = useAppStore((s) => s.removeWatchlistStock);
+  const setWatchlistJobs = useAppStore((s) => s.setWatchlistJobs);
+  const jobsBySymbol = useAppStore((s) => s.jobsByWatchlist[watchlist.id]) ?? {};
+  const stepAvgMs = useAppStore((s) => s.stepAvgMs);
 
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [deletedSymbols, setDeletedSymbols] = useState<Set<string>>(new Set());
   const [tickerInput, setTickerInput] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('symbol');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [logJobId, setLogJobId] = useState<number | null>(null);
+  const [logSymbol, setLogSymbol] = useState('');
 
   const scoreLabel = watchlist.is_default ? 'EP Score' : 'VCP Score';
 
@@ -68,7 +76,12 @@ export function WatchlistPanel({ watchlist }: Props) {
         );
       })
       .catch((e: Error) => notifyError(e.message));
-  }, [watchlist.id, setWatchlistStocks]);
+
+    jobsApi
+      .listWatchlistJobs(watchlist.id)
+      .then((data) => setWatchlistJobs({ watchlistId: watchlist.id, ...data }))
+      .catch((e: Error) => notifyError(e.message));
+  }, [watchlist.id, setWatchlistStocks, setWatchlistJobs]);
 
   function toggleSort(key: SortKey) {
     if (sortBy === key) {
@@ -158,6 +171,14 @@ export function WatchlistPanel({ watchlist }: Props) {
     }
   }
 
+  async function handleAnalyze(symbol: string) {
+    try {
+      await jobsApi.analyze(watchlist.id, symbol);
+    } catch (e) {
+      notifyError((e as Error).message);
+    }
+  }
+
   return (
     <Stack gap="sm">
       <Table highlightOnHover striped>
@@ -184,6 +205,7 @@ export function WatchlistPanel({ watchlist }: Props) {
                 onToggle={toggleSort}
               />
             </Table.Th>
+            <Table.Th>Status</Table.Th>
             <Table.Th />
           </Table.Tr>
         </Table.Thead>
@@ -203,6 +225,21 @@ export function WatchlistPanel({ watchlist }: Props) {
                   {stock.score_updated_at ? new Date(stock.score_updated_at).toLocaleString() : '—'}
                 </Table.Td>
                 <Table.Td>
+                  {!isDeleted && (
+                    <JobStatusCell
+                      symbol={stock.symbol}
+                      watchlistId={watchlist.id}
+                      job={jobsBySymbol[stock.symbol]}
+                      stepAvgMs={stepAvgMs}
+                      onAnalyze={() => handleAnalyze(stock.symbol)}
+                      onViewLog={(jobId) => {
+                        setLogJobId(jobId);
+                        setLogSymbol(stock.symbol);
+                      }}
+                    />
+                  )}
+                </Table.Td>
+                <Table.Td>
                   {isDeleted ? (
                     <ActionIcon variant="subtle" color="green" size="sm" onClick={() => handleRestore(stock.symbol)}>
                       <IconRefresh size={14} />
@@ -218,7 +255,7 @@ export function WatchlistPanel({ watchlist }: Props) {
           })}
           {sortedStocks.length === 0 && (
             <Table.Tr>
-              <Table.Td colSpan={6}>
+              <Table.Td colSpan={7}>
                 <Text c="dimmed" ta="center" py="sm">
                   No stocks in this watchlist.
                 </Text>
@@ -249,6 +286,12 @@ export function WatchlistPanel({ watchlist }: Props) {
           </Button>
         </Group>
       </Stack>
+
+      <JobLogModal
+        jobId={logJobId}
+        symbol={logSymbol}
+        onClose={() => setLogJobId(null)}
+      />
     </Stack>
   );
 }

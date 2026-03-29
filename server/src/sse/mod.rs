@@ -1,5 +1,8 @@
 use axum::response::sse::Event;
 use chrono::Local;
+use serde::Serialize;
+
+use crate::models::{JobStatus, PipelineStep};
 use std::{
     collections::HashMap,
     convert::Infallible,
@@ -14,10 +17,21 @@ use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};
 
 const CHANNEL_BUFFER: usize = 128;
 
+#[derive(Debug, Clone, Serialize)]
+pub struct JobEvent {
+    pub job_id: i64,
+    pub symbol: String,
+    pub watchlist_id: i64,
+    pub status: JobStatus,
+    pub step: PipelineStep,
+    pub error: Option<String>,
+}
+
 #[derive(Clone)]
 pub enum SseMessage {
     Heartbeat,
     Quote(String),
+    Job(JobEvent),
 }
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -45,6 +59,9 @@ pub fn subscribe() -> impl Stream<Item = Result<Event, Infallible>> {
                 .event("heartbeat")
                 .data(Local::now().format("%H:%M:%S").to_string()),
             SseMessage::Quote(data) => Event::default().event("quote").data(data),
+            SseMessage::Job(ev) => Event::default()
+                .event("job")
+                .data(serde_json::to_string(&ev).unwrap_or_default()),
         })
     })
 }

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Watchlist } from '../types';
+import type { JobSummary, Watchlist, WatchlistJobsResponse } from '../types';
 
 type TabOrientation = 'vertical' | 'horizontal';
 
@@ -32,6 +32,12 @@ interface AppState {
   // Nav expand state — persisted to localStorage
   expandedWatchlistIds: Record<number, boolean>;
   toggleWatchlistExpanded: (id: number) => void;
+
+  // Job state — keyed by watchlistId, then symbol
+  jobsByWatchlist: Record<number, Record<string, JobSummary>>;
+  stepAvgMs: Record<string, number>;
+  setWatchlistJobs: (data: WatchlistJobsResponse & { watchlistId: number }) => void;
+  updateJob: (job: JobSummary) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -94,4 +100,25 @@ export const useAppStore = create<AppState>((set) => ({
       localStorage.setItem('watchlistExpanded', JSON.stringify(next));
       return { expandedWatchlistIds: next };
     }),
+
+  jobsByWatchlist: {},
+  stepAvgMs: {},
+  setWatchlistJobs: ({ watchlistId, jobs, step_avg_ms }) =>
+    set((s) => ({
+      jobsByWatchlist: {
+        ...s.jobsByWatchlist,
+        [watchlistId]: Object.fromEntries(jobs.map((j) => [j.symbol, j])),
+      },
+      stepAvgMs: step_avg_ms,
+    })),
+  updateJob: (job) =>
+    set((s) => ({
+      jobsByWatchlist: {
+        ...s.jobsByWatchlist,
+        [job.watchlist_id]: {
+          ...(s.jobsByWatchlist[job.watchlist_id] ?? {}),
+          [job.symbol]: job,
+        },
+      },
+    })),
 }));
