@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Accordion, ActionIcon, Badge, Box, Code, Divider, Group, Progress, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
 import { IconList, IconCopy, IconCheck } from '@tabler/icons-react';
 import { useParams } from 'react-router-dom';
@@ -57,6 +57,12 @@ function BasicInfoPanel({ analysis, symbol }: { analysis: StockAnalysis; symbol:
   const priceRange = priceMax - priceMin;
   const currentPct = priceRange > 0 ? ((priceCurrent - priceMin) / priceRange) * 100 : 0;
   const avgPct = priceRange > 0 ? ((priceAvg - priceMin) / priceRange) * 100 : 0;
+
+  function labelAlign(pct: number) {
+    if (pct < 10) return 'translateX(0)';
+    if (pct > 90) return 'translateX(-100%)';
+    return 'translateX(-50%)';
+  }
 
   return (
     <ScrollArea style={{ height: '100%' }} p="md">
@@ -133,7 +139,7 @@ function BasicInfoPanel({ analysis, symbol }: { analysis: StockAnalysis; symbol:
               left: `${Math.min(Math.max(currentPct, 0), 100)}%`,
               transform: 'translateX(-50%)',
             }}>
-              <Text size="xs" c="dimmed" title={`Current price: $${fmt(priceCurrent)}`} style={{ position: 'absolute', bottom: 10, whiteSpace: 'nowrap', transform: 'translateX(-50%)' }}>
+              <Text size="xs" c="dimmed" title={`Current price: $${fmt(priceCurrent)}`} style={{ position: 'absolute', bottom: 10, whiteSpace: 'nowrap', transform: labelAlign(currentPct) }}>
                 ${fmt(priceCurrent)}
               </Text>
               <Box style={{ width: 2, height: 10, background: 'var(--mantine-color-gray-4)', borderRadius: 1, marginTop: -2 }} />
@@ -144,7 +150,7 @@ function BasicInfoPanel({ analysis, symbol }: { analysis: StockAnalysis; symbol:
               left: `${Math.min(Math.max(avgPct, 0), 100)}%`,
               transform: 'translateX(-50%)',
             }}>
-              <Text size="xs" c="teal" title={`Avg price target: $${fmt(priceAvg)}`} style={{ position: 'absolute', bottom: 10, whiteSpace: 'nowrap', transform: 'translateX(-50%)' }}>
+              <Text size="xs" c="teal" title={`Avg price target: $${fmt(priceAvg)}`} style={{ position: 'absolute', bottom: 10, whiteSpace: 'nowrap', transform: labelAlign(avgPct) }}>
                 ${fmt(priceAvg)}
               </Text>
               <Box style={{ width: 2, height: 10, background: 'var(--mantine-color-teal-4)', borderRadius: 1, marginTop: -2 }} />
@@ -183,6 +189,16 @@ export function Stock() {
     if (!watchlistId || !symbol) return;
     jobsApi.getAnalysis(Number(watchlistId), symbol).then(setAnalysis).catch(() => {});
   }, [watchlistId, symbol]);
+
+  const prevJobStatus = useRef(job?.status);
+  useEffect(() => {
+    if (prevJobStatus.current !== 'completed' && job?.status === 'completed') {
+      if (watchlistId && symbol) {
+        jobsApi.getAnalysis(Number(watchlistId), symbol).then(setAnalysis).catch(() => {});
+      }
+    }
+    prevJobStatus.current = job?.status;
+  }, [job?.status, watchlistId, symbol]);
 
   return (
     <Box style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
