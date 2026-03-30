@@ -1,0 +1,109 @@
+{
+  "TSLA": {
+    "quarterly_earnings": [
+      {"period_label": "Q1 '24", "eps_reported": 0.45, "eps_estimate": 0.49, "revenue_reported": 21300000000, "revenue_estimate": 22220000000},
+      {"period_label": "Q2 '24", "eps_reported": 0.52, "eps_estimate": 0.61, "revenue_reported": 25500000000, "revenue_estimate": 24520000000},
+      {"period_label": "Q3 '24", "eps_reported": 0.72, "eps_estimate": 0.59, "revenue_reported": 25180000000, "revenue_estimate": 25470000000},
+      {"period_label": "Q4 '24", "eps_reported": 0.73, "eps_estimate": 0.77, "revenue_reported": 25710000000, "revenue_estimate": 27260000000},
+      {"period_label": "Q1 '25", "eps_reported": 0.27, "eps_estimate": 0.41, "revenue_reported": 19340000000, "revenue_estimate": 21270000000},
+      {"period_label": "Q2 '25", "eps_reported": 0.40, "eps_estimate": 0.40, "revenue_reported": 22500000000, "revenue_estimate": 22280000000},
+      {"period_label": "Q3 '25", "eps_reported": 0.50, "eps_estimate": 0.56, "revenue_reported": 28090000000, "revenue_estimate": 26540000000},
+      {"period_label": "Q4 '25", "eps_reported": 0.50, "eps_estimate": 0.45, "revenue_reported": 24900000000, "revenue_estimate": 24780000000},
+      {"period_label": "Q1 '26", "eps_reported": null, "eps_estimate": 0.41, "revenue_reported": null, "revenue_estimate": 22960000000},
+      {"period_label": "Q2 '26", "eps_reported": null, "eps_estimate": 0.46, "revenue_reported": null, "revenue_estimate": 24770000000},
+      {"period_label": "Q3 '26", "eps_reported": null, "eps_estimate": 0.52, "revenue_reported": null, "revenue_estimate": 27230000000},
+      {"period_label": "Q4 '26", "eps_reported": null, "eps_estimate": 0.58, "revenue_reported": null, "revenue_estimate": 28510000000}
+    ],
+    "annual_earnings": [
+      {"period_label": "2019", "eps_reported": 0,    "eps_estimate": 0,    "revenue_reported": 24580000000,  "revenue_estimate": 24250000000},
+      {"period_label": "2020", "eps_reported": 0.75, "eps_estimate": 0.82, "revenue_reported": 31540000000,  "revenue_estimate": 31100000000},
+      {"period_label": "2021", "eps_reported": 2.26, "eps_estimate": 2.15, "revenue_reported": 53820000000,  "revenue_estimate": 53010000000},
+      {"period_label": "2022", "eps_reported": 4.07, "eps_estimate": 3.96, "revenue_reported": 81460000000,  "revenue_estimate": 82140000000},
+      {"period_label": "2023", "eps_reported": 3.12, "eps_estimate": 3.07, "revenue_reported": 96770000000,  "revenue_estimate": 97460000000},
+      {"period_label": "2024", "eps_reported": 2.42, "eps_estimate": 2.45, "revenue_reported": 97690000000,  "revenue_estimate": 99660000000},
+      {"period_label": "2025", "eps_reported": 1.66, "eps_estimate": 1.66, "revenue_reported": 94830000000,  "revenue_estimate": 94910000000},
+      {"period_label": "2026", "eps_reported": null, "eps_estimate": 1.98, "revenue_reported": null,         "revenue_estimate": 104250000000},
+      {"period_label": "2027", "eps_reported": null, "eps_estimate": 2.63, "revenue_reported": null,         "revenue_estimate": 121080000000}
+    ]
+  },
+  "PLTR": {
+    "quarterly_earnings": [
+      {"period_label": "Q1 '24", "eps_reported": 0.08, "eps_estimate": 0.08, "revenue_reported": 634340000,  "revenue_estimate": 615400000},
+      {"period_label": "Q2 '24", "eps_reported": 0.09, "eps_estimate": 0.08, "revenue_reported": 678130000,  "revenue_estimate": 653230000},
+      {"period_label": "Q3 '24", "eps_reported": 0.10, "eps_estimate": 0.09, "revenue_reported": 725520000,  "revenue_estimate": 705110000},
+      {"period_label": "Q4 '24", "eps_reported": 0.14, "eps_estimate": 0.11, "revenue_reported": 827520000,  "revenue_estimate": 775780000},
+      {"period_label": "Q1 '25", "eps_reported": 0.13, "eps_estimate": 0.13, "revenue_reported": 883860000,  "revenue_estimate": 862170000},
+      {"period_label": "Q2 '25", "eps_reported": 0.16, "eps_estimate": 0.14, "revenue_reported": 1000000000, "revenue_estimate": 937700000},
+      {"period_label": "Q3 '25", "eps_reported": 0.21, "eps_estimate": 0.17, "revenue_reported": 1180000000, "revenue_estimate": 1090000000},
+      {"period_label": "Q4 '25", "eps_reported": 0.25, "eps_estimate": 0.23, "revenue_reported": 1410000000, "revenue_estimate": 1340000000},
+      {"period_label": "Q1 '26", "eps_reported": null, "eps_estimate": 0.28, "revenue_reported": null,       "revenue_estimate": 1540000000},
+      {"period_label": "Q2 '26", "eps_reported": null, "eps_estimate": 0.30, "revenue_reported": null,       "revenue_estimate": 1680000000},
+      {"period_label": "Q3 '26", "eps_reported": null, "eps_estimate": 0.34, "revenue_reported": null,       "revenue_estimate": 1880000000},
+      {"period_label": "Q4 '26", "eps_reported": null, "eps_estimate": 0.40, "revenue_reported": null,       "revenue_estimate": 2170000000}
+    ],
+    "annual_earnings": [
+      {"period_label": "2020", "eps_reported": 0.19, "eps_estimate": 0.07, "revenue_reported": 1090000000, "revenue_estimate": 1070000000},
+      {"period_label": "2021", "eps_reported": 0.13, "eps_estimate": 0.15, "revenue_reported": 1540000000, "revenue_estimate": 1530000000},
+      {"period_label": "2022", "eps_reported": 0.06, "eps_estimate": 0.05, "revenue_reported": 1910000000, "revenue_estimate": 1900000000},
+      {"period_label": "2023", "eps_reported": 0.25, "eps_estimate": 0.25, "revenue_reported": 2230000000, "revenue_estimate": 2220000000},
+      {"period_label": "2024", "eps_reported": 0.41, "eps_estimate": 0.37, "revenue_reported": 2870000000, "revenue_estimate": 2810000000},
+      {"period_label": "2025", "eps_reported": 0.75, "eps_estimate": 0.72, "revenue_reported": 4480000000, "revenue_estimate": 4370000000},
+      {"period_label": "2026", "eps_reported": null, "eps_estimate": 1.29, "revenue_reported": null,       "revenue_estimate": 7200000000},
+      {"period_label": "2027", "eps_reported": null, "eps_estimate": 1.85, "revenue_reported": null,       "revenue_estimate": 10340000000}
+    ]
+  },
+  "MSFT": {
+    "quarterly_earnings": [
+      {"period_label": "Q3 '24", "eps_reported": 2.94, "eps_estimate": 2.82, "revenue_reported": 61860000000, "revenue_estimate": 60860000000},
+      {"period_label": "Q4 '24", "eps_reported": 2.95, "eps_estimate": 2.94, "revenue_reported": 64730000000, "revenue_estimate": 64380000000},
+      {"period_label": "Q1 '25", "eps_reported": 3.30, "eps_estimate": 3.10, "revenue_reported": 65580000000, "revenue_estimate": 64560000000},
+      {"period_label": "Q2 '25", "eps_reported": 3.23, "eps_estimate": 3.12, "revenue_reported": 69630000000, "revenue_estimate": 68870000000},
+      {"period_label": "Q3 '25", "eps_reported": 3.46, "eps_estimate": 3.22, "revenue_reported": 70070000000, "revenue_estimate": 68440000000},
+      {"period_label": "Q4 '25", "eps_reported": 3.65, "eps_estimate": 3.37, "revenue_reported": 76440000000, "revenue_estimate": 73930000000},
+      {"period_label": "Q1 '26", "eps_reported": 4.13, "eps_estimate": 3.67, "revenue_reported": 77670000000, "revenue_estimate": 75490000000},
+      {"period_label": "Q2 '26", "eps_reported": 4.14, "eps_estimate": 3.90, "revenue_reported": 81270000000, "revenue_estimate": 80310000000},
+      {"period_label": "Q3 '26", "eps_reported": null, "eps_estimate": 4.05, "revenue_reported": null,        "revenue_estimate": 81300000000},
+      {"period_label": "Q4 '26", "eps_reported": null, "eps_estimate": 4.27, "revenue_reported": null,        "revenue_estimate": 87580000000},
+      {"period_label": "Q1 '27", "eps_reported": null, "eps_estimate": 4.58, "revenue_reported": null,        "revenue_estimate": 89040000000},
+      {"period_label": "Q2 '27", "eps_reported": null, "eps_estimate": 4.68, "revenue_reported": null,        "revenue_estimate": 93370000000}
+    ],
+    "annual_earnings": [
+      {"period_label": "2019", "eps_reported": 4.75,  "eps_estimate": 4.59,  "revenue_reported": 125840000000, "revenue_estimate": 124900000000},
+      {"period_label": "2020", "eps_reported": 5.76,  "eps_estimate": 5.66,  "revenue_reported": 143010000000, "revenue_estimate": 141500000000},
+      {"period_label": "2021", "eps_reported": 7.97,  "eps_estimate": 7.77,  "revenue_reported": 168090000000, "revenue_estimate": 166230000000},
+      {"period_label": "2022", "eps_reported": 9.21,  "eps_estimate": 9.27,  "revenue_reported": 198270000000, "revenue_estimate": 198700000000},
+      {"period_label": "2023", "eps_reported": 9.81,  "eps_estimate": 9.62,  "revenue_reported": 211910000000, "revenue_estimate": 211550000000},
+      {"period_label": "2024", "eps_reported": 11.80, "eps_estimate": 11.83, "revenue_reported": 245120000000, "revenue_estimate": 244930000000},
+      {"period_label": "2025", "eps_reported": 13.64, "eps_estimate": 13.42, "revenue_reported": 281720000000, "revenue_estimate": 279210000000},
+      {"period_label": "2026", "eps_reported": null,  "eps_estimate": 16.50, "revenue_reported": null,         "revenue_estimate": 327590000000},
+      {"period_label": "2027", "eps_reported": null,  "eps_estimate": 19.01, "revenue_reported": null,         "revenue_estimate": 378050000000}
+    ]
+  },
+  "META": {
+    "quarterly_earnings": [
+      {"period_label": "Q1 '24", "eps_reported": 4.71, "eps_estimate": 4.32, "revenue_reported": 36450000000, "revenue_estimate": 36150000000},
+      {"period_label": "Q2 '24", "eps_reported": 5.16, "eps_estimate": 4.72, "revenue_reported": 39070000000, "revenue_estimate": 38260000000},
+      {"period_label": "Q3 '24", "eps_reported": 6.03, "eps_estimate": 5.22, "revenue_reported": 40590000000, "revenue_estimate": 40200000000},
+      {"period_label": "Q4 '24", "eps_reported": 8.02, "eps_estimate": 6.76, "revenue_reported": 48380000000, "revenue_estimate": 47000000000},
+      {"period_label": "Q1 '25", "eps_reported": 6.43, "eps_estimate": 5.23, "revenue_reported": 42310000000, "revenue_estimate": 41340000000},
+      {"period_label": "Q2 '25", "eps_reported": 7.14, "eps_estimate": 5.88, "revenue_reported": 47520000000, "revenue_estimate": 44820000000},
+      {"period_label": "Q3 '25", "eps_reported": 1.05, "eps_estimate": 6.72, "revenue_reported": 51240000000, "revenue_estimate": 49510000000},
+      {"period_label": "Q4 '25", "eps_reported": 8.88, "eps_estimate": 8.21, "revenue_reported": 59890000000, "revenue_estimate": 58460000000},
+      {"period_label": "Q1 '26", "eps_reported": null, "eps_estimate": 6.63, "revenue_reported": null,        "revenue_estimate": 55360000000},
+      {"period_label": "Q2 '26", "eps_reported": null, "eps_estimate": 7.14, "revenue_reported": null,        "revenue_estimate": 59520000000},
+      {"period_label": "Q3 '26", "eps_reported": null, "eps_estimate": 7.15, "revenue_reported": null,        "revenue_estimate": 62760000000},
+      {"period_label": "Q4 '26", "eps_reported": null, "eps_estimate": 8.66, "revenue_reported": null,        "revenue_estimate": 72840000000}
+    ],
+    "annual_earnings": [
+      {"period_label": "2019", "eps_reported": 6.43,  "eps_estimate": 6.39,  "revenue_reported": 70700000000,  "revenue_estimate": 70510000000},
+      {"period_label": "2020", "eps_reported": 10.09, "eps_estimate": 9.42,  "revenue_reported": 85970000000,  "revenue_estimate": 84260000000},
+      {"period_label": "2021", "eps_reported": 13.77, "eps_estimate": 13.97, "revenue_reported": 117930000000, "revenue_estimate": 117560000000},
+      {"period_label": "2022", "eps_reported": 8.59,  "eps_estimate": 9.08,  "revenue_reported": 116610000000, "revenue_estimate": 116050000000},
+      {"period_label": "2023", "eps_reported": 14.87, "eps_estimate": 14.41, "revenue_reported": 134900000000, "revenue_estimate": 133680000000},
+      {"period_label": "2024", "eps_reported": 23.86, "eps_estimate": 22.68, "revenue_reported": 164500000000, "revenue_estimate": 163120000000},
+      {"period_label": "2025", "eps_reported": 23.49, "eps_estimate": 22.92, "revenue_reported": 200970000000, "revenue_estimate": 199570000000},
+      {"period_label": "2026", "eps_reported": null,  "eps_estimate": 29.78, "revenue_reported": null,         "revenue_estimate": 250590000000},
+      {"period_label": "2027", "eps_reported": null,  "eps_estimate": 34.65, "revenue_reported": null,         "revenue_estimate": 296930000000}
+    ]
+  }
+}

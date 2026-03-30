@@ -71,15 +71,19 @@ export function EpsChart({ title, entries, valueKey }: Props) {
     reportedRef.current = chart.addSeries(HistogramSeries, {
       priceScaleId: 'right',
       priceFormat: { type: 'custom', formatter: (v: number) => fmtVal(v, valueKey) },
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
 
     estimateRef.current = chart.addSeries(LineSeries, {
-      color: '#6b7280',
+      color: '#cbd5e1',
       lineWidth: 1,
       lineStyle: 2,
       priceScaleId: 'right',
       priceFormat: { type: 'custom', formatter: (v: number) => fmtVal(v, valueKey) },
       crosshairMarkerVisible: false,
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
 
     growthRef.current = chart.addSeries(LineSeries, {
@@ -87,6 +91,8 @@ export function EpsChart({ title, entries, valueKey }: Props) {
       lineWidth: 2,
       priceScaleId: 'left',
       priceFormat: { type: 'custom', formatter: (v: number) => `${v.toFixed(1)}%` },
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
 
     return () => { chart.remove(); };
@@ -131,7 +137,7 @@ export function EpsChart({ title, entries, valueKey }: Props) {
   return (
     <Box>
       <Text size="xs" c="dimmed" fw={500} mb={4}>{title}</Text>
-      <div ref={containerRef} style={{ height: 200 }} />
+      <div ref={containerRef} style={{ height: 200, marginTop: 8, width: '100%' }} />
     </Box>
   );
 }

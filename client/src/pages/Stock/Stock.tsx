@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Accordion, ActionIcon, Badge, Box, Code, Divider, Group, Progress, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
+import { Accordion, ActionIcon, Badge, Box, Center, Code, Divider, Group, Loader, Progress, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
 import { IconList, IconCopy, IconCheck } from '@tabler/icons-react';
 import { useParams } from 'react-router-dom';
 import { useAppStore } from '../../store';
@@ -181,6 +181,9 @@ export function Stock() {
   const stepAvgMs = useAppStore((s) => s.stepAvgMs);
   const [logOpen, setLogOpen] = useState(false);
   const [analysis, setAnalysis] = useState<StockAnalysis | null>(null);
+  const [loadedForKey, setLoadedForKey] = useState<string | null>(null);
+  const currentKey = watchlistId && symbol ? `${watchlistId}/${symbol}` : null;
+  const loading = currentKey !== null && loadedForKey !== currentKey;
   const [copied, setCopied] = useState(false);
 
   const isActive = job?.status === 'pending' || job?.status === 'running';
@@ -188,7 +191,10 @@ export function Stock() {
 
   useEffect(() => {
     if (!watchlistId || !symbol) return;
-    jobsApi.getAnalysis(Number(watchlistId), symbol).then(setAnalysis).catch(() => {});
+    const key = `${watchlistId}/${symbol}`;
+    jobsApi.getAnalysis(Number(watchlistId), symbol)
+      .then((data) => { setAnalysis(data); setLoadedForKey(key); })
+      .catch(() => { setAnalysis(null); setLoadedForKey(key); });
   }, [watchlistId, symbol]);
 
   const prevJobStatus = useRef(job?.status);
@@ -226,9 +232,21 @@ export function Stock() {
         </Box>
       )}
 
+      {loading && (
+        <Center h={200}>
+          <Loader size="sm" />
+        </Center>
+      )}
+
+      {!loading && !analysis && (
+        <Center h={200}>
+          <Text c="dimmed" size="sm">No analysis data yet.</Text>
+        </Center>
+      )}
+
       {analysis && (
         <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          <Box style={{ flex: 3, height: 500 }}>
+          <Box style={{ flex: 3, height: 500, minWidth: 0 }}>
             <TvChart exchange={analysis.exchange} symbol={symbol!} />
           </Box>
           <Box style={{ flex: 1, borderLeft: '1px solid var(--mantine-color-dark-4)', height: 500 }}>
@@ -244,6 +262,12 @@ export function Stock() {
           </Box>
           <Box p="md" style={{ background: 'var(--mantine-color-dark-7)' }}>
             <EpsChart title="EPS Annual" entries={analysis.earnings.annual_earnings} valueKey="eps" />
+          </Box>
+          <Box p="md" style={{ background: 'var(--mantine-color-dark-7)' }}>
+            <EpsChart title="Revenue Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="revenue" />
+          </Box>
+          <Box p="md" style={{ background: 'var(--mantine-color-dark-7)' }}>
+            <EpsChart title="Revenue Annual" entries={analysis.earnings.annual_earnings} valueKey="revenue" />
           </Box>
         </Box>
       )}
