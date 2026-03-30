@@ -7,3 +7,11 @@ export function notifyError(message: string) {
     message,
   });
 }
+
+export function notifySuccess(message: string) {
+  notifications.show({
+    color: 'green',
+    title: 'Success',
+    message,
+  });
+}

@@ -14,9 +14,21 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return res.json() as Promise<T>;
 }
 
+export interface Prompt {
+  key: string;
+  content: string;
+  updated_at: string;
+}
+
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body: unknown) => request<T>('POST', path, body),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
+
+  prompts: {
+    list: () => request<Prompt[]>('GET', '/prompts'),
+    update: (key: string, content: string) =>
+      request<void>('PATCH', `/prompts/${key}`, { content }),
+  },
 };

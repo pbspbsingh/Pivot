@@ -1,5 +1,6 @@
 pub mod error;
 mod jobs;
+mod prompts;
 mod watchlists;
 
 use axum::{
@@ -44,6 +45,8 @@ pub fn router() -> Router {
             "/api/watchlists/{id}/stocks/{symbol}/analyze",
             post(jobs::enqueue_stock),
         )
+        .route("/api/prompts", get(prompts::list))
+        .route("/api/prompts/{key}", patch(prompts::update))
         .route("/api/jobs/{job_id}/log", get(jobs::get_job_log))
         .route(
             "/api/watchlists/{id}/stocks/{symbol}/analysis",

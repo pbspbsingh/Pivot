@@ -1,6 +1,7 @@
 pub mod analysis;
 pub mod edgar;
 pub mod jobs;
+pub mod prompts;
 pub mod watchlists;
 
 use anyhow::Result;
@@ -30,6 +31,9 @@ pub async fn init(database_path: &str) -> Result<()> {
     sqlx::migrate!("./migrations").run(&pool).await?;
 
     POOL.set(pool).expect("DB pool already initialized");
+
+    prompts::seed().await?;
+
     Ok(())
 }
 
