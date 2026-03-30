@@ -3,6 +3,12 @@ name = "pivot-server"
 version = "0.1.0"
 edition = "2024"
 
+[profile.release]
+lto = true
+strip = true
+panic = "abort"
+codegen-units = 1
+
 [dependencies]
 # web
 axum = "0.8"

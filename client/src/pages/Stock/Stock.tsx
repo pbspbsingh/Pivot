@@ -7,6 +7,7 @@ import { JobLogModal } from '../../components/JobLogModal';
 import { computeProgress } from '../../utils/jobProgress';
 import { jobsApi } from '../../api/jobs';
 import type { ForecastData, StockAnalysis } from '../../types';
+import { EpsChart } from '../../components/EpsChart';
 
 const STEP_LABELS: Record<string, string> = {
   queued: 'Queued',
@@ -237,28 +238,39 @@ export function Stock() {
       )}
 
       {analysis && (
+        <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--mantine-color-dark-4)' }}>
+          <Box p="md" style={{ background: 'var(--mantine-color-dark-7)' }}>
+            <EpsChart title="EPS Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="eps" />
+          </Box>
+          <Box p="md" style={{ background: 'var(--mantine-color-dark-7)' }}>
+            <EpsChart title="EPS Annual" entries={analysis.earnings.annual_earnings} valueKey="eps" />
+          </Box>
+        </Box>
+      )}
+
+      {analysis && (
         <Accordion variant="separated" mt="xs">
           <Accordion.Item value="raw">
-            <Accordion.Control py={4} px="xs">
-              <Group justify="space-between" pr="xs">
+            <Box style={{ position: 'relative' }}>
+              <Accordion.Control py={4} px="xs">
                 <Text size="xs" c="dimmed">Raw analysis data</Text>
-                <Tooltip label={copied ? 'Copied!' : 'Copy JSON'} position="left">
-                  <ActionIcon
-                    variant="subtle"
-                    color={copied ? 'teal' : 'gray'}
-                    size="xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigator.clipboard.writeText(JSON.stringify(analysis, null, 2));
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    }}
-                  >
-                    {copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Accordion.Control>
+              </Accordion.Control>
+              <Tooltip label={copied ? 'Copied!' : 'Copy JSON'} position="left">
+                <ActionIcon
+                  variant="subtle"
+                  color={copied ? 'teal' : 'gray'}
+                  size="xs"
+                  style={{ position: 'absolute', right: 32, top: '50%', transform: 'translateY(-50%)' }}
+                  onClick={() => {
+                    navigator.clipboard.writeText(JSON.stringify(analysis, null, 2));
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                >
+                  {copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                </ActionIcon>
+              </Tooltip>
+            </Box>
             <Accordion.Panel>
               <Code block fz="xs" style={{ whiteSpace: 'pre', maxHeight: 400, overflow: 'auto' }}>
                 {JSON.stringify(analysis, null, 2)}

@@ -72,6 +72,7 @@ export interface ForecastData {
   rating_hold: number | null;
   rating_sell: number | null;
   rating_strong_sell: number | null;
+  rating_analyst_count: number | null;
   rating_total_analysts: number | null;
   rating_consensus: string | null;
 }
