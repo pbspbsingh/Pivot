@@ -1,3 +1,4 @@
+mod deepseek;
 mod ollama;
 #[cfg(test)]
 mod test;
@@ -17,7 +18,7 @@ use crate::{
 
 #[async_trait]
 pub trait LlmDriver: Send + Sync {
-    async fn execute(&self, system: String, user: String) -> Result<String>;
+    async fn execute(&self, ticker: &str, system: String, user: String) -> Result<String>;
 }
 
 pub struct Scorer {
@@ -32,9 +33,17 @@ impl Scorer {
 
     // Can be used internally for testing
     fn new_custom_ollama(host: impl Into<String>, model: impl Into<String>) -> Self {
-        Scorer {
-            driver: Box::new(ollama::Ollama::new(host.into(), model.into())),
-        }
+        let driver = Box::new(ollama::Ollama::new(host.into(), model.into()));
+        Scorer { driver }
+    }
+
+    pub fn new_with_deepseek() -> Self {
+        let cfg = &CONFIG.deepseek;
+        let driver = Box::new(deepseek::DeepSeek::new(
+            cfg.api_key.clone(),
+            cfg.model.clone(),
+        ));
+        Scorer { driver }
     }
 
     pub async fn evaluate_score(&self, watchlist_id: i64, ticker: &str) -> Result<StockScore> {
@@ -61,7 +70,10 @@ impl Scorer {
             .ok_or_else(|| anyhow::anyhow!("EP prompt not found"))?;
 
         let input = self.base_input(analysis);
-        let raw = self.driver.execute(prompt, input.to_string()).await?;
+        let raw = self
+            .driver
+            .execute(&analysis.symbol, prompt, input.to_string())
+            .await?;
         parse_response(&raw, "ep_score")
     }
 
@@ -72,7 +84,10 @@ impl Scorer {
 
         let mut input = self.base_input(analysis);
         input["forecast"] = serde_json::to_value(&analysis.forecast.0)?;
-        let raw = self.driver.execute(prompt, input.to_string()).await?;
+        let raw = self
+            .driver
+            .execute(&analysis.symbol, prompt, input.to_string())
+            .await?;
         parse_response(&raw, "vcp_score")
     }
 
@@ -97,12 +112,19 @@ impl Scorer {
     }
 }
 
-/// Strips `<think>...</think>` blocks emitted by reasoning models (e.g. DeepSeek R1)
-/// and parses the remaining text as JSON.
+/// Strips `<think>...</think>` blocks and markdown code fences, then parses JSON.
 fn strip_think_and_parse(raw: &str) -> Result<Value> {
     let text = match raw.find("</think>") {
         Some(end) => raw[end + "</think>".len()..].trim(),
         None => raw.trim(),
+    };
+    // Strip markdown fences: ```json ... ``` or ``` ... ```
+    let text = if text.starts_with("```") {
+        let start = text.find('\n').map(|i| i + 1).unwrap_or(text.len());
+        let end = text.rfind("```").unwrap_or(text.len());
+        text[start..end].trim()
+    } else {
+        text
     };
     serde_json::from_str(text).context("Failed to parse LLM response as JSON")
 }

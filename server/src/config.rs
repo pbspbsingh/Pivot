@@ -11,11 +11,18 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub chrome: ChromeConfig,
     pub ollama: OllamaConfig,
+    pub deepseek: DeepSeekConfig,
 }
 
 #[derive(Deserialize)]
 pub struct OllamaConfig {
     pub host: String,
+    pub model: String,
+}
+
+#[derive(Deserialize)]
+pub struct DeepSeekConfig {
+    pub api_key: String,
     pub model: String,
 }
 

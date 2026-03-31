@@ -3,13 +3,15 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use serde::Deserialize;
 use tokio::time::{Duration, Instant, interval};
+use tracing::info;
 
 use crate::pipeline::score::LlmDriver;
+use crate::utils;
 
 pub struct Ollama {
     host: String,
     model: String,
-    client: reqwest::Client,
+    client: &'static reqwest::Client,
 }
 
 #[derive(Deserialize)]
@@ -32,14 +34,14 @@ impl Ollama {
         Ollama {
             host,
             model,
-            client: reqwest::Client::new(),
+            client: &utils::CLIENT,
         }
     }
 }
 
 #[async_trait]
 impl LlmDriver for Ollama {
-    async fn execute(&self, system: String, user: String) -> Result<String> {
+    async fn execute(&self, ticker: &str, system: String, user: String) -> Result<String> {
         let url = format!("{}/api/chat", self.host);
 
         let body = serde_json::json!({
@@ -62,8 +64,8 @@ impl LlmDriver for Ollama {
             .context("Ollama returned error status")?;
 
         let start = Instant::now();
-        let mut ticker = interval(Duration::from_secs(30));
-        ticker.tick().await; // discard the immediate first tick
+        let mut ticker_interval = interval(Duration::from_secs(30));
+        ticker_interval.tick().await; // discard the immediate first tick
 
         let mut stream = resp.bytes_stream();
         let mut line_buf = String::new();
@@ -98,10 +100,14 @@ impl LlmDriver for Ollama {
                                         .filter(|&d| d > 0)
                                         .map(|d| eval_tokens as f64 / (d as f64 / 1e9))
                                         .unwrap_or(0.0);
-                                    eprintln!(
-                                        "[ollama] done — {elapsed:.1}s | prompt {} tok | generated {} tok | {tps:.1} tok/s",
-                                        chunk.prompt_eval_count.unwrap_or(0),
-                                        eval_tokens,
+                                    info!(
+                                        ticker,
+                                        model = %self.model,
+                                        elapsed_s = format!("{elapsed:.1}"),
+                                        prompt_tokens = chunk.prompt_eval_count.unwrap_or(0),
+                                        generated_tokens = eval_tokens,
+                                        tok_per_sec = format!("{tps:.1}"),
+                                        "ollama done"
                                     );
                                     return Ok(content);
                                 }
@@ -111,10 +117,13 @@ impl LlmDriver for Ollama {
                         None => break,
                     }
                 }
-                _ = ticker.tick() => {
-                    eprintln!(
-                        "[ollama] {:.0}s elapsed | ~{tokens} tokens generated so far",
-                        start.elapsed().as_secs_f64(),
+                _ = ticker_interval.tick() => {
+                    info!(
+                        ticker,
+                        model = %self.model,
+                        elapsed_s = format!("{:.0}", start.elapsed().as_secs_f64()),
+                        tokens,
+                        "ollama generating"
                     );
                 }
             }

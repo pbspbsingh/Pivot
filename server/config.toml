@@ -13,3 +13,7 @@ launch_if_needed = true
 [ollama]
 host = "http://localhost:11434"
 model = "deepseek-r1:8b"
+
+[deepseek]
+api_key = ""
+model = "deepseek-reasoner"
