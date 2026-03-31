@@ -10,20 +10,14 @@ pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
     pub chrome: ChromeConfig,
-    pub ollama: OllamaConfig,
-    pub deepseek: DeepSeekConfig,
+    pub scorer: ScorerConfig,
 }
 
 #[derive(Deserialize)]
-pub struct OllamaConfig {
-    pub host: String,
-    pub model: String,
-}
-
-#[derive(Deserialize)]
-pub struct DeepSeekConfig {
-    pub api_key: String,
-    pub model: String,
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum ScorerConfig {
+    Ollama { host: String, model: String },
+    DeepSeek { api_key: String, model: String },
 }
 
 #[derive(Deserialize)]

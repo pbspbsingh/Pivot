@@ -11,7 +11,7 @@ use chrono::Utc;
 use serde_json::{Value, json};
 
 use crate::{
-    config::CONFIG,
+    config::{CONFIG, ScorerConfig},
     db::{self, analysis::StockAnalysis},
     models::{PromptKey, score::StockScore},
 };
@@ -26,23 +26,22 @@ pub struct Scorer {
 }
 
 impl Scorer {
-    pub fn new_with_ollama() -> Self {
-        let cfg = &CONFIG.ollama;
-        Self::new_custom_ollama(cfg.host.clone(), cfg.model.clone())
+    pub fn from_config() -> Self {
+        match &CONFIG.scorer {
+            ScorerConfig::Ollama { host, model } => {
+                let driver = Box::new(ollama::Ollama::new(host.clone(), model.clone()));
+                Scorer { driver }
+            }
+            ScorerConfig::DeepSeek { api_key, model } => {
+                let driver = Box::new(deepseek::DeepSeek::new(api_key.clone(), model.clone()));
+                Scorer { driver }
+            }
+        }
     }
 
     // Can be used internally for testing
     fn new_custom_ollama(host: impl Into<String>, model: impl Into<String>) -> Self {
         let driver = Box::new(ollama::Ollama::new(host.into(), model.into()));
-        Scorer { driver }
-    }
-
-    pub fn new_with_deepseek() -> Self {
-        let cfg = &CONFIG.deepseek;
-        let driver = Box::new(deepseek::DeepSeek::new(
-            cfg.api_key.clone(),
-            cfg.model.clone(),
-        ));
         Scorer { driver }
     }
 
