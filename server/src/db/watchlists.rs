@@ -2,13 +2,8 @@ use anyhow::Result;
 
 use crate::{
     db::pool,
-    models::{Stock, Watchlist},
+    models::{NewStock, Stock, Watchlist},
 };
-
-pub struct NewStock {
-    pub symbol: String,
-    pub exchange: String,
-}
 
 pub async fn list() -> Result<Vec<Watchlist>> {
     let rows = sqlx::query_as!(

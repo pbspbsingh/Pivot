@@ -7,13 +7,14 @@ use crate::{
     db,
     models::{
         PipelineStep,
+        jobs::JobSummary,
         pipeline::{EarningsData, EarningsRelease, ForecastData, StockBasicInfo},
     },
 };
 
 #[derive(Serialize)]
 pub struct WatchlistJobsResponse {
-    jobs: Vec<db::jobs::JobSummary>,
+    jobs: Vec<JobSummary>,
     step_avg_ms: HashMap<PipelineStep, i64>,
 }
 

@@ -1,3 +1,4 @@
+pub mod jobs;
 pub mod pipeline;
 
 use chrono::NaiveDateTime;
@@ -48,6 +49,11 @@ pub struct Watchlist {
     pub name: String,
     pub is_default: bool,
     pub emoji: String,
+}
+
+pub struct NewStock {
+    pub symbol: String,
+    pub exchange: String,
 }
 
 #[derive(Debug, Serialize, FromRow)]
