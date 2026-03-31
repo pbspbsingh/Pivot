@@ -13,7 +13,7 @@ pub struct StockAnalysis {
     pub watchlist_id: i64,
     pub basic_info: Json<StockBasicInfo>,
     pub earnings: Json<EarningsData>,
-    pub forecast: Json<ForecastData>,
+    pub forecast: Json<Option<ForecastData>>,
     pub document: Json<EarningsRelease>,
     pub analyzed_at: NaiveDateTime,
 }
@@ -23,7 +23,7 @@ pub async fn upsert(
     watchlist_id: i64,
     basic_info: &StockBasicInfo,
     earnings: &EarningsData,
-    forecast: &ForecastData,
+    forecast: Option<&ForecastData>,
     document: &EarningsRelease,
 ) -> Result<()> {
     let bi = Json(basic_info);
@@ -57,7 +57,7 @@ pub async fn get(symbol: &str, watchlist_id: i64) -> Result<Option<StockAnalysis
         r#"SELECT symbol, watchlist_id,
                   basic_info as "basic_info: Json<StockBasicInfo>",
                   earnings   as "earnings: Json<EarningsData>",
-                  forecast   as "forecast: Json<ForecastData>",
+                  forecast   as "forecast: Json<Option<ForecastData>>",
                   document   as "document: Json<EarningsRelease>",
                   analyzed_at
            FROM stock_analysis

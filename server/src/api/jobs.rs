@@ -62,7 +62,7 @@ pub struct StockAnalysisResponse {
     pub exchange: String,
     pub basic_info: StockBasicInfo,
     pub earnings: EarningsData,
-    pub forecast: ForecastData,
+    pub forecast: Option<ForecastData>,
     pub document: EarningsRelease,
     pub analyzed_at: String,
 }

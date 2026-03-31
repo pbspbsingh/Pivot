@@ -6,7 +6,11 @@ use super::{TV_HOME, TradingView, round2};
 
 impl TradingView {
     /// Fetches price target and analyst ratings from the TradingView forecast page.
-    pub async fn fetch_forecast_data(&self, exchange: &str, symbol: &str) -> Result<ForecastData> {
+    pub async fn fetch_forecast_data(
+        &self,
+        exchange: &str,
+        symbol: &str,
+    ) -> Result<Option<ForecastData>> {
         let forecast_url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/forecast/");
         self.goto(&forecast_url).await?;
 
@@ -15,8 +19,12 @@ impl TradingView {
             .await
             .context("Failed to evaluate forecast JS")?;
 
+        if forecast_raw.is_null() {
+            return Ok(None);
+        }
+
         let f = &forecast_raw;
-        Ok(ForecastData {
+        Ok(Some(ForecastData {
             price_current: f["price_current"].as_f64().map(round2),
             price_target_average: f["price_target_average"].as_f64().map(round2),
             price_target_average_upside_pct: f["price_target_average_upside_pct"]
@@ -32,7 +40,7 @@ impl TradingView {
             rating_strong_sell: f["rating_strong_sell"].as_u64().map(|n| n as u32),
             rating_total_analysts: f["rating_total_analysts"].as_u64().map(|n| n as u32),
             rating_consensus: f["rating_consensus"].as_str().map(str::to_string),
-        })
+        }))
     }
 
     /// Extracts price target and analyst rating data from the TradingView

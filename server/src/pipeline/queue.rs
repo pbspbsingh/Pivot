@@ -164,14 +164,14 @@ async fn load_step_data<T: DeserializeOwned>(job_id: i64, step: PipelineStep) ->
 async fn save_analysis(job_id: i64, symbol: &str, watchlist_id: i64) -> Result<(), String> {
     let basic_info: StockBasicInfo = load_step_data(job_id, PipelineStep::BasicInfo).await?;
     let earnings: EarningsData = load_step_data(job_id, PipelineStep::Earnings).await?;
-    let forecast: ForecastData = load_step_data(job_id, PipelineStep::Forecast).await?;
+    let forecast: Option<ForecastData> = load_step_data(job_id, PipelineStep::Forecast).await?;
     let document: EarningsRelease = load_step_data(job_id, PipelineStep::Document).await?;
     db::analysis::upsert(
         symbol,
         watchlist_id,
         &basic_info,
         &earnings,
-        &forecast,
+        forecast.as_ref(),
         &document,
     )
     .await
