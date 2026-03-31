@@ -9,6 +9,7 @@ use tokio::time::sleep;
 
 use crate::{
     db,
+    models::jobs::{AnalysisJob, JobSummary},
     models::pipeline::{EarningsData, EarningsRelease, ForecastData, StockBasicInfo},
     models::{JobStatus, PipelineStep},
     pipeline::tradingview::TradingView,
@@ -95,7 +96,7 @@ fn broadcast_job(
     step: PipelineStep,
     error: Option<String>,
 ) {
-    sse::broadcast(sse::SseMessage::Job(sse::JobEvent {
+    sse::broadcast(sse::SseMessage::Job(JobSummary {
         job_id,
         symbol: symbol.to_string(),
         watchlist_id,
@@ -178,7 +179,7 @@ async fn save_analysis(job_id: i64, symbol: &str, watchlist_id: i64) -> Result<(
     .map_err(|e| e.to_string())
 }
 
-async fn process_job(job: db::jobs::AnalysisJob) {
+async fn process_job(job: AnalysisJob) {
     let job_id = job.id;
     let symbol = job.symbol.clone();
     let watchlist_id = job.watchlist_id;

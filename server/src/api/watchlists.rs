@@ -3,17 +3,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     api::error::{ApiError, ApiResult},
-    db, yfinance,
+    db,
+    models::NewStock,
+    yfinance,
 };
 
 #[derive(Deserialize)]
-pub struct CreateBody {
-    pub name: String,
-    pub emoji: String,
-}
-
-#[derive(Deserialize)]
-pub struct RenameBody {
+pub struct WatchlistBody {
     pub name: String,
     pub emoji: String,
 }
@@ -34,7 +30,9 @@ pub async fn list() -> ApiResult<impl axum::response::IntoResponse> {
     Ok(Json(watchlists))
 }
 
-pub async fn create(Json(body): Json<CreateBody>) -> ApiResult<impl axum::response::IntoResponse> {
+pub async fn create(
+    Json(body): Json<WatchlistBody>,
+) -> ApiResult<impl axum::response::IntoResponse> {
     if body.name.trim().is_empty() {
         return Err(ApiError::BadRequest("Name cannot be empty".into()));
     }
@@ -45,7 +43,7 @@ pub async fn create(Json(body): Json<CreateBody>) -> ApiResult<impl axum::respon
 
 pub async fn rename(
     Path(id): Path<i64>,
-    Json(body): Json<RenameBody>,
+    Json(body): Json<WatchlistBody>,
 ) -> ApiResult<impl axum::response::IntoResponse> {
     if body.name.trim().is_empty() {
         return Err(ApiError::BadRequest("Name cannot be empty".into()));
@@ -123,7 +121,7 @@ pub async fn add_stocks(
     for symbol in &symbols {
         let exchange = known.get(symbol).or_else(|| fetched.get(symbol));
         if let Some(exchange) = exchange {
-            new_stocks.push(db::watchlists::NewStock {
+            new_stocks.push(NewStock {
                 symbol: symbol.clone(),
                 exchange: exchange.clone(),
             });
