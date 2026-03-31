@@ -1,5 +1,6 @@
 pub mod jobs;
 pub mod pipeline;
+pub mod score;
 
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};

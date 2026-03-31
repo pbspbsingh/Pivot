@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
         )
         .init();
 
-    db::init(&CONFIG.database.path).await?;
+    db::init().await?;
     sse::init();
     pipeline::queue::start();
 

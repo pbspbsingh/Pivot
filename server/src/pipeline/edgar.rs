@@ -306,9 +306,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_latest_8k() {
-        db::init("database.sqlite")
-            .await
-            .expect("Failed to init database");
+        db::init().await.expect("Failed to init database");
         let edgar = Edgar::new().expect("Failed to create Edgar client");
 
         let filing = edgar

@@ -10,6 +10,13 @@ pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
     pub chrome: ChromeConfig,
+    pub ollama: OllamaConfig,
+}
+
+#[derive(Deserialize)]
+pub struct OllamaConfig {
+    pub host: String,
+    pub model: String,
 }
 
 #[derive(Deserialize)]

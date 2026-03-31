@@ -4,18 +4,22 @@ pub mod jobs;
 pub mod prompts;
 pub mod watchlists;
 
+use crate::config::CONFIG;
 use anyhow::Result;
 use sqlx::{
     SqlitePool,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous},
 };
 use std::{str::FromStr, sync::OnceLock};
+use tracing::info;
 
 pub type Db = SqlitePool;
 
 static POOL: OnceLock<Db> = OnceLock::new();
 
-pub async fn init(database_path: &str) -> Result<()> {
+pub async fn init() -> Result<()> {
+    let database_path = &CONFIG.database.path;
+    info!("initializing database at {database_path:?}");
     let options = SqliteConnectOptions::from_str(&format!("sqlite:{database_path}"))?
         .create_if_missing(true)
         .journal_mode(SqliteJournalMode::Wal)

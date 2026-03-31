@@ -9,3 +9,7 @@ path = "database.sqlite"
 binary = "/usr/bin/google-chrome"
 user_data_dir = "/home/pbs/Workspace/ChromeData"
 launch_if_needed = true
+
+[ollama]
+host = "http://localhost:11434"
+model = "deepseek-r1:8b"
