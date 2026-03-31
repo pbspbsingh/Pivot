@@ -5,11 +5,8 @@ use sqlx::FromRow;
 
 use crate::{db::pool, models::PromptKey};
 
-const VCP_QUANTITATIVE: &str = include_str!("../../prompts/prompt-vcp-quantitative.md");
-const VCP_QUALITATIVE: &str = include_str!("../../prompts/prompt-vcp-qualitative.md");
-
-const EP_QUANTITATIVE: &str = include_str!("../../prompts/prompt-ep-quantitative.md");
-const EP_QUALITATIVE: &str = include_str!("../../prompts/prompt-ep-qualitative.md");
+const VCP: &str = include_str!("../../prompts/prompt-vcp.md");
+const EP: &str = include_str!("../../prompts/prompt-ep.md");
 
 #[derive(Debug, Serialize, FromRow)]
 pub struct Prompt {
@@ -18,16 +15,10 @@ pub struct Prompt {
     pub updated_at: NaiveDateTime,
 }
 
-/// Seeds the 4 prompt rows on first startup. Uses INSERT OR IGNORE so user edits are never
-/// overwritten on restart. EP prompts use VCP content as a placeholder until real EP prompts
-/// are provided.
+/// Seeds the 2 prompt rows on first startup. Uses INSERT OR IGNORE so user edits are never
+/// overwritten on restart.
 pub async fn seed() -> Result<()> {
-    let seeds = [
-        (PromptKey::VcpQuantitative, VCP_QUANTITATIVE),
-        (PromptKey::VcpQualitative, VCP_QUALITATIVE),
-        (PromptKey::EpQuantitative, EP_QUANTITATIVE),
-        (PromptKey::EpQualitative, EP_QUALITATIVE),
-    ];
+    let seeds = [(PromptKey::Vcp, VCP), (PromptKey::Ep, EP)];
     for (key, content) in seeds {
         sqlx::query!(
             "INSERT OR IGNORE INTO prompts (key, content) VALUES (?, ?)",

@@ -26,10 +26,8 @@ pub enum AttemptStatus {
 #[sqlx(type_name = "TEXT", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum PromptKey {
-    VcpQuantitative,
-    VcpQualitative,
-    EpQuantitative,
-    EpQualitative,
+    Vcp,
+    Ep,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]

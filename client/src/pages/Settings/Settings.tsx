@@ -15,16 +15,11 @@ import { notifyError, notifySuccess } from '../../utils/notify';
 import { useAppStore } from '../../store';
 
 const PROMPT_LABELS: Record<string, string> = {
-  vcp_quantitative: 'VCP — Quantitative',
-  vcp_qualitative: 'VCP — Qualitative',
-  ep_quantitative: 'EP — Quantitative',
-  ep_qualitative: 'EP — Qualitative',
+  vcp: 'VCP',
+  ep: 'EP',
 };
 
-const PROMPT_ROWS = [
-  ['vcp_quantitative', 'vcp_qualitative'],
-  ['ep_quantitative', 'ep_qualitative'],
-];
+const PROMPT_KEYS = ['vcp', 'ep'];
 
 export function Settings() {
   const tabOrientation = useAppStore((s) => s.tabOrientation);
@@ -73,28 +68,26 @@ export function Settings() {
 
       <Stack gap="lg">
         <Title order={4}>Scoring Prompts</Title>
-        {PROMPT_ROWS.map((row) => (
-          <SimpleGrid key={row[0]} cols={{ base: 1, md: 2 }} spacing="md">
-            {row.map((key) => (
-              <Stack key={key} gap="xs">
-                <Text fw={500} size="sm">{PROMPT_LABELS[key]}</Text>
-                <Textarea
-                  value={prompts[key] ?? ''}
-                  onChange={(e) => setPrompts((p) => ({ ...p, [key]: e.currentTarget.value }))}
-                  autosize
-                  minRows={6}
-                  maxRows={20}
-                  styles={{ input: { fontFamily: 'monospace', fontSize: 12 } }}
-                />
-                <Group justify="flex-end">
-                  <Button size="xs" loading={saving[key]} onClick={() => save(key)}>
-                    Save
-                  </Button>
-                </Group>
-              </Stack>
-            ))}
-          </SimpleGrid>
-        ))}
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+          {PROMPT_KEYS.map((key) => (
+            <Stack key={key} gap="xs">
+              <Text fw={500} size="sm">{PROMPT_LABELS[key]}</Text>
+              <Textarea
+                value={prompts[key] ?? ''}
+                onChange={(e) => setPrompts((p) => ({ ...p, [key]: e.currentTarget.value }))}
+                autosize
+                minRows={12}
+                maxRows={40}
+                styles={{ input: { fontFamily: 'monospace', fontSize: 12 } }}
+              />
+              <Group justify="flex-end">
+                <Button size="xs" loading={saving[key]} onClick={() => save(key)}>
+                  Save
+                </Button>
+              </Group>
+            </Stack>
+          ))}
+        </SimpleGrid>
       </Stack>
     </Stack>
   );
