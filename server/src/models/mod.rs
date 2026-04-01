@@ -65,5 +65,6 @@ pub struct Stock {
     pub exchange: String,
     pub sector: Option<String>,
     pub industry: Option<String>,
+    pub score: Option<f64>,
     pub analyzed_at: Option<NaiveDateTime>,
 }

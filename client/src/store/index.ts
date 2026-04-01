@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { JobSummary, Watchlist, WatchlistJobsResponse } from '../types';
 
+export interface NavStock {
+  symbol: string;
+  score: number | null;
+}
+
 type TabOrientation = 'vertical' | 'horizontal';
 
 interface AppState {
@@ -21,13 +26,14 @@ interface AppState {
   updateWatchlist: (watchlist: Watchlist) => void;
   removeWatchlist: (id: number) => void;
 
-  // Stock symbols per watchlist — for nav display only (no scores etc.)
+  // Stocks per watchlist — for nav display, includes score.
   // Only populated for watchlists whose stocks have been fetched.
   // Mutations are no-ops if the watchlist isn't loaded yet.
-  stocksByWatchlist: Record<number, string[]>;
-  setWatchlistStocks: (watchlistId: number, symbols: string[]) => void;
-  addWatchlistStocks: (watchlistId: number, symbols: string[]) => void;
+  stocksByWatchlist: Record<number, NavStock[]>;
+  setWatchlistStocks: (watchlistId: number, stocks: NavStock[]) => void;
+  addWatchlistStocks: (watchlistId: number, stocks: NavStock[]) => void;
   removeWatchlistStock: (watchlistId: number, symbol: string) => void;
+  updateStockScore: (watchlistId: number, symbol: string, score: number) => void;
 
   // Nav expand state — persisted to localStorage
   expandedWatchlistIds: Record<number, boolean>;
@@ -68,16 +74,17 @@ export const useAppStore = create<AppState>((set) => ({
     })),
 
   stocksByWatchlist: {},
-  setWatchlistStocks: (watchlistId, symbols) =>
-    set((s) => ({ stocksByWatchlist: { ...s.stocksByWatchlist, [watchlistId]: symbols } })),
-  addWatchlistStocks: (watchlistId, symbols) =>
+  setWatchlistStocks: (watchlistId, stocks) =>
+    set((s) => ({ stocksByWatchlist: { ...s.stocksByWatchlist, [watchlistId]: stocks } })),
+  addWatchlistStocks: (watchlistId, stocks) =>
     set((s) => {
       const current = s.stocksByWatchlist[watchlistId];
       if (!current) return s;
+      const existing = new Set(current.map((s) => s.symbol));
       return {
         stocksByWatchlist: {
           ...s.stocksByWatchlist,
-          [watchlistId]: [...new Set([...current, ...symbols])],
+          [watchlistId]: [...current, ...stocks.filter((s) => !existing.has(s.symbol))],
         },
       };
     }),
@@ -88,7 +95,18 @@ export const useAppStore = create<AppState>((set) => ({
       return {
         stocksByWatchlist: {
           ...s.stocksByWatchlist,
-          [watchlistId]: current.filter((sym) => sym !== symbol),
+          [watchlistId]: current.filter((s) => s.symbol !== symbol),
+        },
+      };
+    }),
+  updateStockScore: (watchlistId, symbol, score) =>
+    set((s) => {
+      const current = s.stocksByWatchlist[watchlistId];
+      if (!current) return s;
+      return {
+        stocksByWatchlist: {
+          ...s.stocksByWatchlist,
+          [watchlistId]: current.map((s) => s.symbol === symbol ? { ...s, score } : s),
         },
       };
     }),

@@ -68,6 +68,7 @@ pub async fn list_stocks(watchlist_id: i64) -> Result<Vec<Stock>> {
                 -- Use ->> to get unquoted text directly
                 (sa.basic_info ->> '$.sector') as "sector?: String",
                 (sa.basic_info ->> '$.industry') as "industry?: String",
+                (sa.score ->> '$.score') as "score?: f64",
                 -- Added '?' because this comes from a LEFT JOIN and can be NULL
                 sa.analyzed_at as "analyzed_at?"
             FROM watchlist_stocks ws

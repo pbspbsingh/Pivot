@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../store';
+import { watchlistApi } from '../api/watchlists';
 import type { JobSummary } from '../types';
 
 const MIN_RETRY = 1000;
@@ -10,6 +11,7 @@ export function useServerEvents() {
   const setConnected = useAppStore((s) => s.setConnected);
   const setServerTime = useAppStore((s) => s.setServerTime);
   const updateJob = useAppStore((s) => s.updateJob);
+  const setWatchlistStocks = useAppStore((s) => s.setWatchlistStocks);
 
   useEffect(() => {
     let es: EventSource | null = null;
@@ -45,6 +47,11 @@ export function useServerEvents() {
         try {
           const job = JSON.parse(e.data) as JobSummary;
           updateJob(job);
+          if (job.status === 'completed') {
+            watchlistApi.listStocks(job.watchlist_id).then((stocks) => {
+              setWatchlistStocks(job.watchlist_id, stocks.map((s) => ({ symbol: s.symbol, score: s.score })));
+            }).catch(() => {});
+          }
         } catch {
           // ignore malformed events
         }
@@ -66,5 +73,5 @@ export function useServerEvents() {
       clearTimeout(heartbeatTimeout);
       es?.close();
     };
-  }, [setConnected, setServerTime, updateJob]);
+  }, [setConnected, setServerTime, updateJob, setWatchlistStocks]);
 }

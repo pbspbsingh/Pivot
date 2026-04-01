@@ -78,7 +78,7 @@ export function WatchlistPanel({ watchlist }: Props) {
         setDeletedSymbols(new Set());
         setWatchlistStocks(
           watchlist.id,
-          s.map((stock) => stock.symbol),
+          s.map((stock) => ({ symbol: stock.symbol, score: stock.score })),
         );
       })
       .catch((e: Error) => notifyError(e.message));
@@ -97,11 +97,14 @@ export function WatchlistPanel({ watchlist }: Props) {
     if (newlyCompleted) {
       watchlistApi
         .listStocks(watchlist.id)
-        .then(setStocks)
+        .then((s) => {
+          setStocks(s);
+          setWatchlistStocks(watchlist.id, s.map((stock) => ({ symbol: stock.symbol, score: stock.score })));
+        })
         .catch((e: Error) => notifyError(e.message));
     }
     prevJobsRef.current = jobsBySymbol;
-  }, [jobsBySymbol, watchlist.id]);
+  }, [jobsBySymbol, watchlist.id, setWatchlistStocks]);
 
   function toggleSort(key: SortKey) {
     if (sortBy === key) {
@@ -142,7 +145,7 @@ export function WatchlistPanel({ watchlist }: Props) {
         setStocks(updated);
         setWatchlistStocks(
           watchlist.id,
-          updated.map((s) => s.symbol),
+          updated.map((s) => ({ symbol: s.symbol, score: s.score })),
         );
         setWatchlistJobs({ watchlistId: watchlist.id, ...jobsData });
         setTickerInput('');
@@ -173,7 +176,8 @@ export function WatchlistPanel({ watchlist }: Props) {
         next.delete(symbol);
         return next;
       });
-      addWatchlistStocks(watchlist.id, [symbol]);
+      const restored = stocks.find((s) => s.symbol === symbol);
+      addWatchlistStocks(watchlist.id, [{ symbol, score: restored?.score ?? null }]);
     } catch (e) {
       notifyError((e as Error).message);
     }
@@ -230,7 +234,7 @@ export function WatchlistPanel({ watchlist }: Props) {
                 </Table.Td>
                 <Table.Td c="dimmed">{stock.sector ?? '—'}</Table.Td>
                 <Table.Td c="dimmed">{stock.industry ?? '—'}</Table.Td>
-                <Table.Td c="dimmed">—</Table.Td>
+                <Table.Td c="dimmed">{stock.score != null ? stock.score.toFixed(1) : '—'}</Table.Td>
                 <Table.Td c="dimmed">
                   {stock.analyzed_at ? new Date(stock.analyzed_at + 'Z').toLocaleString() : '—'}
                 </Table.Td>

@@ -10,6 +10,7 @@ export interface Stock {
   exchange: string;
   sector: string | null;
   industry: string | null;
+  score: number | null;
   analyzed_at: string | null;
 }
 

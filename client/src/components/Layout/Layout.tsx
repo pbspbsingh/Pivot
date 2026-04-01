@@ -59,7 +59,7 @@ export function Layout() {
       .forEach((w) => {
         watchlistApi
           .listStocks(w.id)
-          .then((stocks) => setWatchlistStocks(w.id, stocks.map((s) => s.symbol)))
+          .then((stocks) => setWatchlistStocks(w.id, stocks.map((s) => ({ symbol: s.symbol, score: s.score }))))
           .catch(() => {});
       });
   }, [watchlists, expandedWatchlistIds, stocksByWatchlist, setWatchlistStocks]);
@@ -69,7 +69,7 @@ export function Layout() {
     if (!expandedWatchlistIds[id] && !stocksByWatchlist[id]) {
       try {
         const stocks = await watchlistApi.listStocks(id);
-        setWatchlistStocks(id, stocks.map((s) => s.symbol));
+        setWatchlistStocks(id, stocks.map((s) => ({ symbol: s.symbol, score: s.score })));
       } catch {
         // nav is non-critical
       }
@@ -131,25 +131,29 @@ export function Layout() {
               childrenOffset={12}
             >
               {(stocksByWatchlist[w.id] ?? []).length > 0 ? (
-                (stocksByWatchlist[w.id] ?? []).map((symbol) => (
+                (stocksByWatchlist[w.id] ?? []).map((stock) => (
                   <Menu
-                    key={symbol}
-                    opened={tickerMenu?.watchlistId === w.id && tickerMenu?.symbol === symbol}
+                    key={stock.symbol}
+                    opened={tickerMenu?.watchlistId === w.id && tickerMenu?.symbol === stock.symbol}
                     onChange={(o) => !o && setTickerMenu(null)}
                     withinPortal
                   >
                     <Menu.Target>
                       <NavLink
-                        label={symbol}
+                        label={
+                          <Group justify="space-between" wrap="nowrap" gap={4}>
+                            <Text span style={{ fontFamily: 'monospace', fontSize: 11 }}>{stock.symbol}</Text>
+                            {stock.score != null && (
+                              <Text span size="xs" c="dimmed">{stock.score.toFixed(1)}</Text>
+                            )}
+                          </Group>
+                        }
                         component={RouterNavLink}
-                        to={`/stock/${w.id}/${symbol}`}
-                        styles={{
-                          label: { fontFamily: 'monospace', fontSize: 11 },
-                          root: { padding: '2px 8px' },
-                        }}
+                        to={`/stock/${w.id}/${stock.symbol}`}
+                        styles={{ root: { padding: '2px 8px' } }}
                         onContextMenu={(e: React.MouseEvent) => {
                           e.preventDefault();
-                          setTickerMenu({ watchlistId: w.id, symbol });
+                          setTickerMenu({ watchlistId: w.id, symbol: stock.symbol });
                         }}
                       />
                     </Menu.Target>

@@ -170,6 +170,7 @@ export function Stock() {
   const { watchlistId, symbol } = useParams<{ watchlistId: string; symbol: string }>();
   const job = useAppStore((s) => s.jobsByWatchlist[Number(watchlistId)]?.[symbol ?? '']);
   const stepAvgMs = useAppStore((s) => s.stepAvgMs);
+  const updateStockScore = useAppStore((s) => s.updateStockScore);
   const [logOpen, setLogOpen] = useState(false);
   const [analysis, setAnalysis] = useState<StockAnalysis | null>(null);
   const [scoreJson, setScoreJson] = useState('');
@@ -328,6 +329,7 @@ export function Stock() {
                       try {
                         await jobsApi.saveScore(Number(watchlistId), symbol, parsed);
                         setAnalysis((prev) => prev ? { ...prev, score: parsed } : prev);
+                        updateStockScore(Number(watchlistId), symbol, parsed.score);
                         setScoreError(null);
                       } catch (e) {
                         setScoreError(e instanceof Error ? e.message : 'Save failed');
