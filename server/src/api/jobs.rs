@@ -1,5 +1,5 @@
 use axum::{Json, extract::Path, http::StatusCode};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
@@ -65,7 +65,23 @@ pub struct StockAnalysisResponse {
     pub earnings: EarningsData,
     pub forecast: Option<ForecastData>,
     pub document: EarningsRelease,
+    pub score: Option<crate::models::score::StockScore>,
     pub analyzed_at: String,
+}
+
+#[derive(Deserialize)]
+pub struct SaveScoreRequest {
+    pub score: crate::models::score::StockScore,
+}
+
+pub async fn save_score(
+    Path((watchlist_id, symbol)): Path<(i64, String)>,
+    Json(body): Json<SaveScoreRequest>,
+) -> ApiResult<impl axum::response::IntoResponse> {
+    let symbol = symbol.to_uppercase();
+    db::analysis::save_score(&symbol, watchlist_id, &body.score).await?;
+    tracing::info!(watchlist_id, symbol, "Score saved via API");
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn get_stock_analysis(
@@ -84,6 +100,7 @@ pub async fn get_stock_analysis(
         earnings: analysis.earnings.0,
         forecast: analysis.forecast.0,
         document: analysis.document.0,
+        score: analysis.score.map(|s| s.0),
         analyzed_at: analysis.analyzed_at.to_string(),
     }))
 }

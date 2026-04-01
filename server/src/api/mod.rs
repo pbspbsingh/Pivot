@@ -6,7 +6,7 @@ mod watchlists;
 use axum::{
     Json, Router,
     response::sse::{Event, KeepAlive, Sse},
-    routing::{delete, get, patch, post},
+    routing::{delete, get, patch, post, put},
 };
 use serde_json::{Value, json};
 use std::convert::Infallible;
@@ -51,6 +51,10 @@ pub fn router() -> Router {
         .route(
             "/api/watchlists/{id}/stocks/{symbol}/analysis",
             get(jobs::get_stock_analysis),
+        )
+        .route(
+            "/api/watchlists/{id}/stocks/{symbol}/score",
+            put(jobs::save_score),
         )
         .layer(CorsLayer::permissive())
 }

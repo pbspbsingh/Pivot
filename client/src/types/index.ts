@@ -82,12 +82,19 @@ export interface EarningsRelease {
   earnings_release: string;
 }
 
+export interface StockScore {
+  score: number;
+  criteria: Record<string, string>;
+  last_updated: string;
+}
+
 export interface StockAnalysis {
   exchange: string;
   basic_info: StockBasicInfo;
   earnings: EarningsData;
   forecast: ForecastData;
   document: EarningsRelease;
+  score: StockScore | null;
   analyzed_at: string;
 }
 

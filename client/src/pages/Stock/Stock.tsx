@@ -172,6 +172,9 @@ export function Stock() {
   const stepAvgMs = useAppStore((s) => s.stepAvgMs);
   const [logOpen, setLogOpen] = useState(false);
   const [analysis, setAnalysis] = useState<StockAnalysis | null>(null);
+  const [scoreJson, setScoreJson] = useState('');
+  const [scoreError, setScoreError] = useState<string | null>(null);
+  const [scoreSaving, setScoreSaving] = useState(false);
   const [loadedForKey, setLoadedForKey] = useState<string | null>(null);
   const currentKey = watchlistId && symbol ? `${watchlistId}/${symbol}` : null;
   const loading = currentKey !== null && loadedForKey !== currentKey;
@@ -184,7 +187,11 @@ export function Stock() {
     if (!watchlistId || !symbol) return;
     const key = `${watchlistId}/${symbol}`;
     jobsApi.getAnalysis(Number(watchlistId), symbol)
-      .then((data) => { setAnalysis(data); setLoadedForKey(key); })
+      .then((data) => {
+        setAnalysis(data);
+        setScoreJson(data.score ? JSON.stringify(data.score, null, 2) : '');
+        setLoadedForKey(key);
+      })
       .catch(() => { setAnalysis(null); setLoadedForKey(key); });
   }, [watchlistId, symbol]);
 
@@ -192,7 +199,10 @@ export function Stock() {
   useEffect(() => {
     if (prevJobStatus.current !== 'completed' && job?.status === 'completed') {
       if (watchlistId && symbol) {
-        jobsApi.getAnalysis(Number(watchlistId), symbol).then(setAnalysis).catch(() => {});
+        jobsApi.getAnalysis(Number(watchlistId), symbol).then((data) => {
+          setAnalysis(data);
+          setScoreJson(data.score ? JSON.stringify(data.score, null, 2) : '');
+        }).catch(() => {});
       }
     }
     prevJobStatus.current = job?.status;
@@ -265,6 +275,73 @@ export function Stock() {
 
       {analysis && (
         <Accordion variant="separated" mt="xs">
+          <Accordion.Item value="score">
+            <Accordion.Control py={4} px="xs">
+              <Text size="xs" c="dimmed">
+                {analysis.score ? `Score: ${analysis.score.score.toFixed(1)}` : 'Score: No score available'}
+              </Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Stack gap="xs">
+                <textarea
+                  value={scoreJson}
+                  onChange={(e) => { setScoreJson(e.target.value); setScoreError(null); }}
+                  rows={12}
+                  style={{
+                    width: '100%',
+                    background: 'var(--mantine-color-dark-8)',
+                    color: 'var(--mantine-color-gray-3)',
+                    border: `1px solid var(--mantine-color-${scoreError ? 'red-7' : 'dark-4'})`,
+                    borderRadius: 4,
+                    padding: '8px',
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    resize: 'vertical',
+                  }}
+                  placeholder='{"score": 7.5, "criteria": {}, "last_updated": "2024-01-01T00:00:00"}'
+                  spellCheck={false}
+                />
+                {scoreError && <Text size="xs" c="red">{scoreError}</Text>}
+                <Group justify="flex-end">
+                  <button
+                    disabled={scoreSaving}
+                    style={{
+                      background: 'var(--mantine-color-blue-7)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 4,
+                      padding: '4px 12px',
+                      fontSize: 12,
+                      cursor: scoreSaving ? 'not-allowed' : 'pointer',
+                      opacity: scoreSaving ? 0.6 : 1,
+                    }}
+                    onClick={async () => {
+                      if (!watchlistId || !symbol) return;
+                      let parsed;
+                      try {
+                        parsed = JSON.parse(scoreJson);
+                      } catch {
+                        setScoreError('Invalid JSON');
+                        return;
+                      }
+                      setScoreSaving(true);
+                      try {
+                        await jobsApi.saveScore(Number(watchlistId), symbol, parsed);
+                        setAnalysis((prev) => prev ? { ...prev, score: parsed } : prev);
+                        setScoreError(null);
+                      } catch (e) {
+                        setScoreError(e instanceof Error ? e.message : 'Save failed');
+                      } finally {
+                        setScoreSaving(false);
+                      }
+                    }}
+                  >
+                    {scoreSaving ? 'Saving…' : 'Save'}
+                  </button>
+                </Group>
+              </Stack>
+            </Accordion.Panel>
+          </Accordion.Item>
           <Accordion.Item value="raw">
             <Box style={{ position: 'relative' }}>
               <Accordion.Control py={4} px="xs">

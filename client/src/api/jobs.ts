@@ -1,5 +1,5 @@
 import { api } from './index';
-import type { StepAttempt, StockAnalysis, WatchlistJobsResponse } from '../types';
+import type { StepAttempt, StockAnalysis, StockScore, WatchlistJobsResponse } from '../types';
 
 export const jobsApi = {
   listWatchlistJobs: (watchlistId: number) =>
@@ -9,4 +9,6 @@ export const jobsApi = {
   getJobLog: (jobId: number) => api.get<StepAttempt[]>(`/jobs/${jobId}/log`),
   getAnalysis: (watchlistId: number, symbol: string) =>
     api.get<StockAnalysis>(`/watchlists/${watchlistId}/stocks/${symbol}/analysis`),
+  saveScore: (watchlistId: number, symbol: string, score: StockScore) =>
+    api.put<void>(`/watchlists/${watchlistId}/stocks/${symbol}/score`, { score }),
 };
