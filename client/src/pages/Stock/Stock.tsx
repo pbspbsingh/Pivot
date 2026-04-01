@@ -63,7 +63,19 @@ function BasicInfoPanel({ analysis, symbol }: { analysis: StockAnalysis; symbol:
         <Stack gap={4}>
           <Group justify="space-between">
             <Text size="xs" c="dimmed">Symbol</Text>
-            <Text size="xs" fw={600} ff="monospace">{analysis.exchange}:{symbol}</Text>
+            <Text
+              size="xs"
+              fw={600}
+              ff="monospace"
+              component="a"
+              href={`https://www.tradingview.com/symbols/${analysis.exchange}-${symbol}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              c="blue.4"
+              style={{ textDecoration: 'none' }}
+            >
+              {symbol}
+            </Text>
           </Group>
           <Group justify="space-between">
             <Text size="xs" c="dimmed">Sector</Text>
