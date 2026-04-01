@@ -3,8 +3,6 @@ mod ollama;
 #[cfg(test)]
 mod test;
 
-use std::collections::HashMap;
-
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -74,7 +72,7 @@ impl Scorer {
             .driver
             .execute(&analysis.symbol, prompt, input.to_string())
             .await?;
-        parse_response(&raw, "ep_score")
+        parse_response(&raw)
     }
 
     async fn evaluate_vcp(&self, analysis: &StockAnalysis) -> Result<StockScore> {
@@ -88,28 +86,32 @@ impl Scorer {
             .driver
             .execute(&analysis.symbol, prompt, input.to_string())
             .await?;
-        parse_response(&raw, "vcp_score")
+        parse_response(&raw)
     }
 
     fn base_input(&self, analysis: &StockAnalysis) -> Value {
-        let earnings = &analysis.earnings.0;
-        let document = &analysis.document.0;
-
-        let most_recent_quarter = earnings
-            .quarterly_earnings
-            .iter()
-            .find(|e| e.eps_reported.is_some())
-            .map(|e| e.period_label.as_str())
-            .unwrap_or("");
-
-        json!({
-            "quarterly_earnings":  earnings.quarterly_earnings,
-            "annual_earnings":     earnings.annual_earnings,
-            "earnings_release":    document.earnings_release,
-            "report_date":         document.day.to_string(),
-            "most_recent_quarter": most_recent_quarter,
-        })
+        build_base_input(analysis)
     }
+}
+
+pub fn build_base_input(analysis: &StockAnalysis) -> Value {
+    let earnings = &analysis.earnings.0;
+    let document = &analysis.document.0;
+
+    let most_recent_quarter = earnings
+        .quarterly_earnings
+        .iter()
+        .find(|e| e.eps_reported.is_some())
+        .map(|e| e.period_label.as_str())
+        .unwrap_or("");
+
+    json!({
+        "quarterly_earnings":  earnings.quarterly_earnings,
+        "annual_earnings":     earnings.annual_earnings,
+        "earnings_release":    document.earnings_release,
+        "report_date":         document.day.to_string(),
+        "most_recent_quarter": most_recent_quarter,
+    })
 }
 
 /// Strips `<think>...</think>` blocks and markdown code fences, then parses JSON.
@@ -129,30 +131,29 @@ fn strip_think_and_parse(raw: &str) -> Result<Value> {
     serde_json::from_str(text).context("Failed to parse LLM response as JSON")
 }
 
-/// Converts `{"A": {"score": 1.5, "reason": "..."}, ...}` → `HashMap<String, String>`
-/// formatted as `"1.5 — reason text"` per entry.
-fn extract_criteria(json: &Value) -> Result<HashMap<String, String>> {
-    let obj = json["criteria"]
+fn parse_response(raw: &str) -> Result<StockScore> {
+    use crate::models::score::CriteriaEntry;
+
+    let json = strip_think_and_parse(raw)?;
+
+    let score = json["score"]
+        .as_f64()
+        .context("Missing 'score' in LLM response")?;
+
+    let criteria_obj = json["criteria"]
         .as_object()
         .context("Missing 'criteria' in LLM response")?;
 
-    obj.iter()
+    let criteria = criteria_obj
+        .iter()
         .map(|(key, val)| {
-            let score = val["score"].as_f64().unwrap_or(0.0);
-            let reason = val["reason"].as_str().unwrap_or("").to_string();
-            Ok((key.clone(), format!("{score} — {reason}")))
+            let entry = CriteriaEntry {
+                score: val["score"].as_f64().unwrap_or(0.0),
+                reason: val["reason"].as_str().unwrap_or("").to_string(),
+            };
+            (key.clone(), entry)
         })
-        .collect()
-}
-
-fn parse_response(raw: &str, score_field: &str) -> Result<StockScore> {
-    let json = strip_think_and_parse(raw)?;
-
-    let score = json[score_field]
-        .as_f64()
-        .with_context(|| format!("Missing '{score_field}' in LLM response"))?;
-
-    let criteria = extract_criteria(&json)?;
+        .collect();
 
     Ok(StockScore {
         score,

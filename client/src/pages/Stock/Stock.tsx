@@ -179,7 +179,9 @@ export function Stock() {
   const [loadedForKey, setLoadedForKey] = useState<string | null>(null);
   const currentKey = watchlistId && symbol ? `${watchlistId}/${symbol}` : null;
   const loading = currentKey !== null && loadedForKey !== currentKey;
-  const [copied, setCopied] = useState(false);
+  const [prompt, setPrompt] = useState<string | null>(null);
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
 
   const isActive = job?.status === 'pending' || job?.status === 'running';
   const isFailed = job?.status === 'failed';
@@ -344,31 +346,48 @@ export function Stock() {
               </Stack>
             </Accordion.Panel>
           </Accordion.Item>
-          <Accordion.Item value="raw">
+          <Accordion.Item value="prompt">
             <Box style={{ position: 'relative' }}>
-              <Accordion.Control py={4} px="xs">
-                <Text size="xs" c="dimmed">Raw analysis data</Text>
+              <Accordion.Control
+                py={4}
+                px="xs"
+                onClick={() => {
+                  if (!prompt && !promptLoading && watchlistId && symbol) {
+                    setPromptLoading(true);
+                    jobsApi.getPrompt(Number(watchlistId), symbol)
+                      .then((p) => setPrompt(p))
+                      .catch(() => setPrompt('Failed to load prompt.'))
+                      .finally(() => setPromptLoading(false));
+                  }
+                }}
+              >
+                <Text size="xs" c="dimmed">LLM Prompt</Text>
               </Accordion.Control>
-              <Tooltip label={copied ? 'Copied!' : 'Copy JSON'} position="left">
+              <Tooltip label={promptCopied ? 'Copied!' : 'Copy prompt'} position="left">
                 <ActionIcon
                   variant="subtle"
-                  color={copied ? 'teal' : 'gray'}
+                  color={promptCopied ? 'teal' : 'gray'}
                   size="xs"
                   style={{ position: 'absolute', right: 32, top: '50%', transform: 'translateY(-50%)' }}
                   onClick={() => {
-                    navigator.clipboard.writeText(JSON.stringify(analysis, null, 2));
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
+                    if (!prompt) return;
+                    navigator.clipboard.writeText(prompt);
+                    setPromptCopied(true);
+                    setTimeout(() => setPromptCopied(false), 2000);
                   }}
                 >
-                  {copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                  {promptCopied ? <IconCheck size={12} /> : <IconCopy size={12} />}
                 </ActionIcon>
               </Tooltip>
             </Box>
             <Accordion.Panel>
-              <Code block fz="xs" style={{ whiteSpace: 'pre', maxHeight: 400, overflow: 'auto' }}>
-                {JSON.stringify(analysis, null, 2)}
-              </Code>
+              {promptLoading ? (
+                <Text size="xs" c="dimmed">Loading…</Text>
+              ) : (
+                <Code block fz="xs" style={{ whiteSpace: 'pre-wrap', maxHeight: 500, overflow: 'auto' }}>
+                  {prompt ?? ''}
+                </Code>
+              )}
             </Accordion.Panel>
           </Accordion.Item>
         </Accordion>

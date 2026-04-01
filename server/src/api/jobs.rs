@@ -71,17 +71,81 @@ pub struct StockAnalysisResponse {
 
 #[derive(Deserialize)]
 pub struct SaveScoreRequest {
-    pub score: crate::models::score::StockScore,
+    pub score: f64,
+    pub criteria: std::collections::HashMap<String, crate::models::score::CriteriaEntry>,
 }
 
 pub async fn save_score(
     Path((watchlist_id, symbol)): Path<(i64, String)>,
     Json(body): Json<SaveScoreRequest>,
 ) -> ApiResult<impl axum::response::IntoResponse> {
+    use chrono::Utc;
     let symbol = symbol.to_uppercase();
-    db::analysis::save_score(&symbol, watchlist_id, &body.score).await?;
+    let stock_score = crate::models::score::StockScore {
+        score: body.score,
+        criteria: body.criteria,
+        last_updated: Utc::now().naive_utc(),
+    };
+    db::analysis::save_score(&symbol, watchlist_id, &stock_score).await?;
     tracing::info!(watchlist_id, symbol, "Score saved via API");
     Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn get_prompt_for_stock(
+    Path((watchlist_id, symbol)): Path<(i64, String)>,
+) -> ApiResult<impl axum::response::IntoResponse> {
+    use crate::models::PromptKey;
+
+    let symbol = symbol.to_uppercase();
+    let watchlist = db::watchlists::get(watchlist_id)
+        .await?
+        .ok_or_else(|| ApiError::NotFound("Watchlist not found".into()))?;
+    let analysis = db::analysis::get(&symbol, watchlist_id)
+        .await?
+        .ok_or_else(|| ApiError::NotFound("No analysis data yet".into()))?;
+
+    let prompt_key = if watchlist.is_default {
+        PromptKey::Ep
+    } else {
+        PromptKey::Vcp
+    };
+    let prompt = db::prompts::get(prompt_key)
+        .await?
+        .ok_or_else(|| ApiError::NotFound("Prompt not found".into()))?;
+
+    let mut input = crate::pipeline::score::build_base_input(&analysis);
+    if !watchlist.is_default {
+        input["forecast"] =
+            serde_json::to_value(&analysis.forecast.0).map_err(|e| ApiError::Internal(e.into()))?;
+    }
+
+    let input_json =
+        serde_json::to_string_pretty(&input).map_err(|e| ApiError::Internal(e.into()))?;
+
+    // Replace the dummy JSON block under ## INPUT with real data.
+    // Search for closing fence only after the opening fence to avoid matching \n``` inside ```json.
+    let full_prompt = if let Some(open) = prompt.find("```json\n") {
+        let after_open = open + "```json\n".len();
+        if let Some(rel_close) = prompt[after_open..].find("\n```") {
+            let close = after_open + rel_close;
+            let after_close = close + "\n```".len();
+            format!(
+                "{}```json\n{}\n```{}",
+                &prompt[..open],
+                input_json,
+                &prompt[after_close..]
+            )
+        } else {
+            format!("{}\n\n```json\n{}\n```", prompt, input_json)
+        }
+    } else {
+        format!("{}\n\n```json\n{}\n```", prompt, input_json)
+    };
+
+    Ok(axum::response::Response::builder()
+        .header("Content-Type", "text/plain; charset=utf-8")
+        .body(axum::body::Body::from(full_prompt))
+        .map_err(|e| ApiError::Internal(e.into()))?)
 }
 
 pub async fn get_stock_analysis(

@@ -53,6 +53,10 @@ pub fn router() -> Router {
             get(jobs::get_stock_analysis),
         )
         .route(
+            "/api/watchlists/{id}/stocks/{symbol}/prompt",
+            get(jobs::get_prompt_for_stock),
+        )
+        .route(
             "/api/watchlists/{id}/stocks/{symbol}/score",
             put(jobs::save_score),
         )

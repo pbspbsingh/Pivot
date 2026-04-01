@@ -116,12 +116,8 @@ async fn test_ep_model_benchmark() -> Result<()> {
                     let deviation: f64 = ref_criteria
                         .iter()
                         .map(|(key, ref_val)| {
-                            let model_val = score
-                                .criteria
-                                .get(*key)
-                                .and_then(|v| v.split(" — ").next())
-                                .and_then(|s| s.parse::<f64>().ok())
-                                .unwrap_or(0.0);
+                            let model_val =
+                                score.criteria.get(*key).map(|v| v.score).unwrap_or(0.0);
                             (model_val - ref_val).abs()
                         })
                         .sum();
@@ -143,14 +139,13 @@ async fn test_ep_model_benchmark() -> Result<()> {
                             .iter()
                             .find(|(rk, _)| rk == k)
                             .map(|(_, rv)| *rv);
-                        let m = v.split(" — ").next().and_then(|s| s.parse::<f64>().ok());
-                        let diff = match (m, r) {
-                            (Some(mv), Some(rv)) if (mv - rv).abs() > f64::EPSILON => {
+                        let diff = match r {
+                            Some(rv) if (v.score - rv).abs() > f64::EPSILON => {
                                 format!("  ← ref={rv}")
                             }
                             _ => String::new(),
                         };
-                        eprintln!("  {k}: {v}{diff}");
+                        eprintln!("  {k}: {} — {}{diff}", v.score, v.reason);
                     }
 
                     stock_results.push((
@@ -308,18 +303,13 @@ async fn test_vcp_model_benchmark() -> Result<()> {
                     .all(|k| score.criteria.contains_key(*k));
                 let score_in_range = score.score >= 1.0 && score.score <= 10.0;
                 let score_is_half_step = (score.score * 2.0).fract() == 0.0;
-                let reasons_non_empty = score.criteria.values().all(|v| !v.is_empty());
+                let reasons_non_empty = score.criteria.values().all(|v| !v.reason.is_empty());
 
                 // Per-criterion deviation from reference
                 let criteria_deviation: f64 = REFERENCE_CRITERIA
                     .iter()
                     .map(|(key, ref_val)| {
-                        let model_val = score
-                            .criteria
-                            .get(*key)
-                            .and_then(|v| v.split(" — ").next())
-                            .and_then(|s| s.parse::<f64>().ok())
-                            .unwrap_or(0.0);
+                        let model_val = score.criteria.get(*key).map(|v| v.score).unwrap_or(0.0);
                         (model_val - ref_val).abs()
                     })
                     .sum();
@@ -337,14 +327,13 @@ async fn test_vcp_model_benchmark() -> Result<()> {
                         .iter()
                         .find(|(rk, _)| rk == k)
                         .map(|(_, rv)| *rv);
-                    let model_val = v.split(" — ").next().and_then(|s| s.parse::<f64>().ok());
-                    let diff = match (model_val, ref_val) {
-                        (Some(m), Some(r)) if (m - r).abs() > f64::EPSILON => {
+                    let diff = match ref_val {
+                        Some(r) if (v.score - r).abs() > f64::EPSILON => {
                             format!("  ← ref={r}")
                         }
                         _ => String::new(),
                     };
-                    eprintln!("  {k}: {v}{diff}");
+                    eprintln!("  {k}: {} — {}{diff}", v.score, v.reason);
                 }
 
                 results.push(ModelResult {

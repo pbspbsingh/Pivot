@@ -83,9 +83,14 @@ export interface EarningsRelease {
   earnings_release: string;
 }
 
+export interface CriteriaEntry {
+  score: number;
+  reason: string;
+}
+
 export interface StockScore {
   score: number;
-  criteria: Record<string, string>;
+  criteria: Record<string, CriteriaEntry>;
   last_updated: string;
 }
 
