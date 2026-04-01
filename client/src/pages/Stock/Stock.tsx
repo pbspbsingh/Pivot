@@ -275,16 +275,16 @@ export function Stock() {
 
       {analysis && (
         <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--mantine-color-dark-4)' }}>
-          <Box p="md" style={{ background: 'var(--mantine-color-dark-7)' }}>
+          <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
             <EpsChart title="EPS Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="eps" />
           </Box>
-          <Box p="md" style={{ background: 'var(--mantine-color-dark-7)' }}>
+          <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
             <EpsChart title="EPS Annual" entries={analysis.earnings.annual_earnings} valueKey="eps" />
           </Box>
-          <Box p="md" style={{ background: 'var(--mantine-color-dark-7)' }}>
+          <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
             <EpsChart title="Revenue Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="revenue" />
           </Box>
-          <Box p="md" style={{ background: 'var(--mantine-color-dark-7)' }}>
+          <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
             <EpsChart title="Revenue Annual" entries={analysis.earnings.annual_earnings} valueKey="revenue" />
           </Box>
         </Box>
