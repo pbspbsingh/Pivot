@@ -10,7 +10,7 @@ export const jobsApi = {
   getAnalysis: (watchlistId: number, symbol: string) =>
     api.get<StockAnalysis>(`/watchlists/${watchlistId}/stocks/${symbol}/analysis`),
   saveScore: (watchlistId: number, symbol: string, score: StockScore) =>
-    api.put<void>(`/watchlists/${watchlistId}/stocks/${symbol}/score`, { score }),
+    api.put<void>(`/watchlists/${watchlistId}/stocks/${symbol}/score`, score),
   getPrompt: (watchlistId: number, symbol: string) =>
     fetch(`/api/watchlists/${watchlistId}/stocks/${symbol}/prompt`).then((r) => r.text()),
 };

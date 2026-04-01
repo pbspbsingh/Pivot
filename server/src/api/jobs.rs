@@ -142,10 +142,10 @@ pub async fn get_prompt_for_stock(
         format!("{}\n\n```json\n{}\n```", prompt, input_json)
     };
 
-    Ok(axum::response::Response::builder()
+    axum::response::Response::builder()
         .header("Content-Type", "text/plain; charset=utf-8")
         .body(axum::body::Body::from(full_prompt))
-        .map_err(|e| ApiError::Internal(e.into()))?)
+        .map_err(|e| ApiError::Internal(e.into()))
 }
 
 pub async fn get_stock_analysis(

@@ -25,6 +25,7 @@ struct StreamChunk {
 #[derive(Deserialize)]
 struct Choice {
     delta: Delta,
+    #[allow(dead_code)]
     finish_reason: Option<String>,
 }
 
@@ -132,11 +133,11 @@ impl LlmDriver for DeepSeek {
                                 }
 
                                 for choice in &chunk.choices {
-                                    if let Some(text) = &choice.delta.content {
-                                        if !text.is_empty() {
-                                            content.push_str(text);
-                                            chunks += 1;
-                                        }
+                                    if let Some(text) = &choice.delta.content
+                                        && !text.is_empty()
+                                    {
+                                        content.push_str(text);
+                                        chunks += 1;
                                     }
                                 }
                             }

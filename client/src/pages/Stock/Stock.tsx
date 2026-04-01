@@ -189,6 +189,8 @@ export function Stock() {
   useEffect(() => {
     if (!watchlistId || !symbol) return;
     const key = `${watchlistId}/${symbol}`;
+    setScoreError(null);
+    setPrompt(null);
     jobsApi.getAnalysis(Number(watchlistId), symbol)
       .then((data) => {
         setAnalysis(data);
@@ -330,8 +332,10 @@ export function Stock() {
                       setScoreSaving(true);
                       try {
                         await jobsApi.saveScore(Number(watchlistId), symbol, parsed);
-                        setAnalysis((prev) => prev ? { ...prev, score: parsed } : prev);
-                        updateStockScore(Number(watchlistId), symbol, parsed.score);
+                        const updated = await jobsApi.getAnalysis(Number(watchlistId), symbol);
+                        setAnalysis(updated);
+                        setScoreJson(updated.score ? JSON.stringify(updated.score, null, 2) : '');
+                        if (updated.score) updateStockScore(Number(watchlistId), symbol, updated.score.score);
                         setScoreError(null);
                       } catch (e) {
                         setScoreError(e instanceof Error ? e.message : 'Save failed');

@@ -11,6 +11,7 @@ use crate::{
 };
 
 #[derive(Debug, FromRow)]
+#[allow(dead_code)]
 pub struct StockAnalysis {
     pub symbol: String,
     pub watchlist_id: i64,

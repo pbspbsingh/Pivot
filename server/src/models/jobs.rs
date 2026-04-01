@@ -5,6 +5,7 @@ use sqlx::FromRow;
 use crate::models::{JobStatus, PipelineStep};
 
 #[derive(Debug, FromRow)]
+#[allow(dead_code)]
 pub struct AnalysisJob {
     pub id: i64,
     pub symbol: String,

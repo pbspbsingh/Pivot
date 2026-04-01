@@ -32,10 +32,10 @@ pub fn start() {
         if let Err(e) = db::jobs::reset_running_to_pending().await {
             tracing::error!("Failed to reset running jobs on startup: {e}");
         }
-        if scoring_enabled {
-            if let Err(e) = db::jobs::reset_scoring_running_to_partial_completed().await {
-                tracing::error!("Failed to reset scoring jobs on startup: {e}");
-            }
+        if scoring_enabled
+            && let Err(e) = db::jobs::reset_scoring_running_to_partial_completed().await
+        {
+            tracing::error!("Failed to reset scoring jobs on startup: {e}");
         }
 
         match db::watchlists::list_all_active_stocks().await {
