@@ -12,6 +12,7 @@ export interface Stock {
   industry: string | null;
   score: number | null;
   analyzed_at: string | null;
+  added_at: string;
 }
 
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';

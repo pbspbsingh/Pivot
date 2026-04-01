@@ -12,7 +12,8 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet } from 'react-router-dom';
 import { NavLink as RouterNavLink, useNavigate } from 'react-router-dom';
-import { IconSettings, IconTrash } from '@tabler/icons-react';
+import { IconSettings, IconTrash, IconSortAZ, IconSortDescendingNumbers, IconCalendarDown } from '@tabler/icons-react';
+import type { NavStock } from '../../store';
 import { watchlistApi } from '../../api/watchlists';
 import { useAppStore } from '../../store';
 import { useServerEvents } from '../../hooks/useServerEvents';
@@ -38,6 +39,8 @@ export function Layout() {
   const removeWatchlistStock = useAppStore((s) => s.removeWatchlistStock);
   const expandedWatchlistIds = useAppStore((s) => s.expandedWatchlistIds);
   const toggleWatchlistExpanded = useAppStore((s) => s.toggleWatchlistExpanded);
+  const navSort = useAppStore((s) => s.navSort);
+  const setNavSort = useAppStore((s) => s.setNavSort);
 
   const [tickerMenu, setTickerMenu] = useState<TickerMenuTarget | null>(null);
 
@@ -59,7 +62,7 @@ export function Layout() {
       .forEach((w) => {
         watchlistApi
           .listStocks(w.id)
-          .then((stocks) => setWatchlistStocks(w.id, stocks.map((s) => ({ symbol: s.symbol, score: s.score }))))
+          .then((stocks) => setWatchlistStocks(w.id, stocks.map((s) => ({ symbol: s.symbol, score: s.score, added_at: s.added_at }))))
           .catch(() => {});
       });
   }, [watchlists, expandedWatchlistIds, stocksByWatchlist, setWatchlistStocks]);
@@ -69,7 +72,7 @@ export function Layout() {
     if (!expandedWatchlistIds[id] && !stocksByWatchlist[id]) {
       try {
         const stocks = await watchlistApi.listStocks(id);
-        setWatchlistStocks(id, stocks.map((s) => ({ symbol: s.symbol, score: s.score })));
+        setWatchlistStocks(id, stocks.map((s) => ({ symbol: s.symbol, score: s.score, added_at: s.added_at })));
       } catch {
         // nav is non-critical
       }
@@ -112,6 +115,16 @@ export function Layout() {
           </Group>
           <Group gap="xs">
             {serverTime && <AnimatedTime time={serverTime} />}
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              title={navSort === 'alpha' ? 'Sort: A–Z' : navSort === 'date' ? 'Sort: Date added' : 'Sort: Score'}
+              onClick={() => setNavSort(navSort === 'alpha' ? 'date' : navSort === 'date' ? 'score' : 'alpha')}
+            >
+              {navSort === 'alpha' && <IconSortAZ size={18} />}
+              {navSort === 'date' && <IconCalendarDown size={18} />}
+              {navSort === 'score' && <IconSortDescendingNumbers size={18} />}
+            </ActionIcon>
             <ActionIcon variant="subtle" color="gray" onClick={() => navigate('/settings')}>
               <IconSettings size={18} />
             </ActionIcon>
@@ -121,7 +134,19 @@ export function Layout() {
 
       <AppShell.Navbar>
         <ScrollArea style={{ height: '100%' }} p="xs">
-          {watchlists.map((w) => (
+          {watchlists.map((w) => {
+            const stocks = stocksByWatchlist[w.id] ?? [];
+            const sorted = [...stocks].sort((a: NavStock, b: NavStock) => {
+              if (navSort === 'date') return a.added_at < b.added_at ? -1 : a.added_at > b.added_at ? 1 : 0;
+              if (navSort === 'score') {
+                if (a.score == null && b.score == null) return 0;
+                if (a.score == null) return -1;
+                if (b.score == null) return 1;
+                return a.score - b.score;
+              }
+              return a.symbol.localeCompare(b.symbol);
+            });
+            return (
             <NavLink
               key={w.id}
               label={<Text size="sm" fw={600} c="blue.3" style={{ letterSpacing: '0.05em' }}>{w.name}</Text>}
@@ -130,8 +155,8 @@ export function Layout() {
               onClick={() => handleToggle(w.id)}
               childrenOffset={12}
             >
-              {(stocksByWatchlist[w.id] ?? []).length > 0 ? (
-                (stocksByWatchlist[w.id] ?? []).map((stock) => (
+              {sorted.length > 0 ? (
+                sorted.map((stock) => (
                   <Menu
                     key={stock.symbol}
                     opened={tickerMenu?.watchlistId === w.id && tickerMenu?.symbol === stock.symbol}
@@ -174,7 +199,8 @@ export function Layout() {
                 </Text>
               )}
             </NavLink>
-          ))}
+            );
+          })}
         </ScrollArea>
       </AppShell.Navbar>
 

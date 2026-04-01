@@ -78,7 +78,7 @@ export function WatchlistPanel({ watchlist }: Props) {
         setDeletedSymbols(new Set());
         setWatchlistStocks(
           watchlist.id,
-          s.map((stock) => ({ symbol: stock.symbol, score: stock.score })),
+          s.map((stock) => ({ symbol: stock.symbol, score: stock.score, added_at: stock.added_at })),
         );
       })
       .catch((e: Error) => notifyError(e.message));
@@ -99,7 +99,7 @@ export function WatchlistPanel({ watchlist }: Props) {
         .listStocks(watchlist.id)
         .then((s) => {
           setStocks(s);
-          setWatchlistStocks(watchlist.id, s.map((stock) => ({ symbol: stock.symbol, score: stock.score })));
+          setWatchlistStocks(watchlist.id, s.map((stock) => ({ symbol: stock.symbol, score: stock.score, added_at: stock.added_at })));
         })
         .catch((e: Error) => notifyError(e.message));
     }
@@ -145,7 +145,7 @@ export function WatchlistPanel({ watchlist }: Props) {
         setStocks(updated);
         setWatchlistStocks(
           watchlist.id,
-          updated.map((s) => ({ symbol: s.symbol, score: s.score })),
+          updated.map((s) => ({ symbol: s.symbol, score: s.score, added_at: s.added_at })),
         );
         setWatchlistJobs({ watchlistId: watchlist.id, ...jobsData });
         setTickerInput('');

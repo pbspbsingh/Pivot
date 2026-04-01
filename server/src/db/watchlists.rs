@@ -70,7 +70,8 @@ pub async fn list_stocks(watchlist_id: i64) -> Result<Vec<Stock>> {
                 (sa.basic_info ->> '$.industry') as "industry?: String",
                 (sa.score ->> '$.score') as "score?: f64",
                 -- Added '?' because this comes from a LEFT JOIN and can be NULL
-                sa.analyzed_at as "analyzed_at?"
+                sa.analyzed_at as "analyzed_at?",
+                ws.added_at as "added_at!"
             FROM watchlist_stocks ws
             JOIN stocks s ON s.symbol = ws.symbol
             LEFT JOIN stock_analysis sa

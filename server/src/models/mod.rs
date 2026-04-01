@@ -67,4 +67,5 @@ pub struct Stock {
     pub industry: Option<String>,
     pub score: Option<f64>,
     pub analyzed_at: Option<NaiveDateTime>,
+    pub added_at: NaiveDateTime,
 }

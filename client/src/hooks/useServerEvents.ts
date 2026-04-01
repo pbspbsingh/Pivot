@@ -49,7 +49,7 @@ export function useServerEvents() {
           updateJob(job);
           if (job.status === 'completed') {
             watchlistApi.listStocks(job.watchlist_id).then((stocks) => {
-              setWatchlistStocks(job.watchlist_id, stocks.map((s) => ({ symbol: s.symbol, score: s.score })));
+              setWatchlistStocks(job.watchlist_id, stocks.map((s) => ({ symbol: s.symbol, score: s.score, added_at: s.added_at })));
             }).catch(() => {});
           }
         } catch {

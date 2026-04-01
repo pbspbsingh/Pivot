@@ -4,6 +4,7 @@ import type { JobSummary, Watchlist, WatchlistJobsResponse } from '../types';
 export interface NavStock {
   symbol: string;
   score: number | null;
+  added_at: string;
 }
 
 type TabOrientation = 'vertical' | 'horizontal';
@@ -39,6 +40,10 @@ interface AppState {
   expandedWatchlistIds: Record<number, boolean>;
   toggleWatchlistExpanded: (id: number) => void;
 
+  // Nav sort — persisted to localStorage
+  navSort: 'alpha' | 'date' | 'score';
+  setNavSort: (sort: 'alpha' | 'date' | 'score') => void;
+
   // Job state — keyed by watchlistId, then symbol
   jobsByWatchlist: Record<number, Record<string, JobSummary>>;
   stepAvgMs: Record<string, number>;
@@ -60,7 +65,11 @@ export const useAppStore = create<AppState>((set) => ({
 
   watchlists: [],
   setWatchlists: (watchlists) => set({ watchlists }),
-  addWatchlist: (watchlist) => set((s) => ({ watchlists: [...s.watchlists, watchlist] })),
+  addWatchlist: (watchlist) => set((s) => {
+    const next = { ...s.expandedWatchlistIds, [watchlist.id]: false };
+    localStorage.setItem('watchlistExpanded', JSON.stringify(next));
+    return { watchlists: [...s.watchlists, watchlist], expandedWatchlistIds: next };
+  }),
   updateWatchlist: (watchlist) =>
     set((s) => ({
       watchlists: s.watchlists.map((w) => (w.id === watchlist.id ? watchlist : w)),
@@ -118,6 +127,12 @@ export const useAppStore = create<AppState>((set) => ({
       localStorage.setItem('watchlistExpanded', JSON.stringify(next));
       return { expandedWatchlistIds: next };
     }),
+
+  navSort: (localStorage.getItem('navSort') ?? 'alpha') as 'alpha' | 'date' | 'score',
+  setNavSort: (sort) => {
+    localStorage.setItem('navSort', sort);
+    set({ navSort: sort });
+  },
 
   jobsByWatchlist: {},
   stepAvgMs: {},
