@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Accordion, ActionIcon, Badge, Box, Center, Code, Divider, Group, Loader, Progress, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
 import { IconList, IconCopy, IconCheck } from '@tabler/icons-react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../store';
+import { sortNavStocks } from '../../utils/navSort';
 import { JobLogModal } from '../../components/JobLogModal';
 import { computeProgress, STEP_LABELS } from '../../utils/jobProgress';
 import { jobsApi } from '../../api/jobs';
@@ -177,9 +178,14 @@ function BasicInfoPanel({ analysis, symbol }: { analysis: StockAnalysis; symbol:
 
 export function Stock() {
   const { watchlistId, symbol } = useParams<{ watchlistId: string; symbol: string }>();
+  const navigate = useNavigate();
   const job = useAppStore((s) => s.jobsByWatchlist[Number(watchlistId)]?.[symbol ?? '']);
   const stepAvgMs = useAppStore((s) => s.stepAvgMs);
   const updateStockScore = useAppStore((s) => s.updateStockScore);
+  const stocksByWatchlist = useAppStore((s) => s.stocksByWatchlist);
+  const navSort = useAppStore((s) => s.navSort);
+  const expandedWatchlistIds = useAppStore((s) => s.expandedWatchlistIds);
+  const toggleWatchlistExpanded = useAppStore((s) => s.toggleWatchlistExpanded);
   const [logOpen, setLogOpen] = useState(false);
   const [analysis, setAnalysis] = useState<StockAnalysis | null>(null);
   const [scoreJson, setScoreJson] = useState('');
@@ -194,6 +200,34 @@ export function Stock() {
 
   const isActive = job?.status === 'pending' || job?.status === 'running';
   const isFailed = job?.status === 'failed';
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!watchlistId || !symbol) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      const wid = Number(watchlistId);
+      const sorted = sortNavStocks(stocksByWatchlist[wid] ?? [], navSort);
+      const idx = sorted.findIndex((s) => s.symbol === symbol);
+
+      if (e.key === 'ArrowDown') {
+        if (idx < sorted.length - 1) navigate(`/stock/${wid}/${sorted[idx + 1].symbol}`);
+      } else if (e.key === 'ArrowUp') {
+        if (idx > 0) navigate(`/stock/${wid}/${sorted[idx - 1].symbol}`);
+      } else if (e.key === 'ArrowLeft') {
+        if (expandedWatchlistIds[wid]) toggleWatchlistExpanded(wid);
+      } else if (e.key === 'ArrowRight') {
+        if (!expandedWatchlistIds[wid]) toggleWatchlistExpanded(wid);
+      } else {
+        return;
+      }
+      e.preventDefault();
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [watchlistId, symbol, stocksByWatchlist, navSort, expandedWatchlistIds, toggleWatchlistExpanded, navigate]);
 
   useEffect(() => {
     if (!watchlistId || !symbol) return;

@@ -13,12 +13,12 @@ import { useDisclosure } from '@mantine/hooks';
 import { Outlet } from 'react-router-dom';
 import { NavLink as RouterNavLink, useNavigate } from 'react-router-dom';
 import { IconSettings, IconTrash, IconSortAZ, IconSortDescendingNumbers, IconCalendarDown } from '@tabler/icons-react';
-import type { NavStock } from '../../store';
 import { watchlistApi } from '../../api/watchlists';
 import { useAppStore } from '../../store';
 import { useServerEvents } from '../../hooks/useServerEvents';
 import { AnimatedTime } from '../AnimatedTime';
 import { notifyError } from '../../utils/notify';
+import { sortNavStocks } from '../../utils/navSort';
 import logo from '../../assets/logo.svg';
 
 interface TickerMenuTarget {
@@ -136,16 +136,7 @@ export function Layout() {
         <ScrollArea style={{ height: '100%' }} p="xs">
           {watchlists.map((w) => {
             const stocks = stocksByWatchlist[w.id] ?? [];
-            const sorted = [...stocks].sort((a: NavStock, b: NavStock) => {
-              if (navSort === 'date') return a.added_at < b.added_at ? -1 : a.added_at > b.added_at ? 1 : 0;
-              if (navSort === 'score') {
-                if (a.score == null && b.score == null) return 0;
-                if (a.score == null) return -1;
-                if (b.score == null) return 1;
-                return a.score - b.score;
-              }
-              return a.symbol.localeCompare(b.symbol);
-            });
+            const sorted = sortNavStocks(stocks, navSort);
             return (
             <NavLink
               key={w.id}
