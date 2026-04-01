@@ -249,7 +249,7 @@ export function Stock() {
 
       <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <Box style={{ flex: 3, height: 500, minWidth: 0, overflow: 'hidden' }}>
-          {analysis && <TvChart exchange={analysis.exchange} symbol={symbol!} />}
+          {(analysis || isActive) && <TvChart exchange={analysis?.exchange} symbol={symbol!} />}
         </Box>
         <Box style={{ flex: 1, borderLeft: '1px solid var(--mantine-color-dark-4)', height: 500 }}>
           {loading && <Center style={{ height: '100%' }}><Loader size="sm" /></Center>}

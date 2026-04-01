@@ -9,7 +9,7 @@ declare global {
 }
 
 interface Props {
-  exchange: string;
+  exchange?: string;
   symbol: string;
 }
 
@@ -23,7 +23,7 @@ export function TvChart({ exchange, symbol }: Props) {
 
     new window.TradingView.widget({
       container_id: id,
-      symbol: `${exchange}:${symbol}`,
+      symbol: exchange ? `${exchange}:${symbol}` : symbol,
       interval: 'D',
       timezone: 'America/Los_Angeles',
       theme: 'dark',
