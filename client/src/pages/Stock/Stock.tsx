@@ -8,11 +8,8 @@ import { computeProgress, STEP_LABELS } from '../../utils/jobProgress';
 import { jobsApi } from '../../api/jobs';
 import type { ForecastData, StockAnalysis } from '../../types';
 import { EpsChart } from '../../components/EpsChart';
+import { TvChart } from '../../components/TvChart';
 
-function TvChart({ exchange, symbol }: { exchange: string; symbol: string }) {
-  const src = `https://www.tradingview.com/widgetembed/?symbol=${exchange}%3A${symbol}&interval=D&theme=dark&style=1&locale=en&hide_side_toolbar=0&allow_symbol_change=0&save_image=0`;
-  return <iframe src={src} style={{ width: '100%', height: '100%', border: 'none' }} allowFullScreen />;
-}
 
 function consensusColor(consensus: string | null) {
   if (!consensus) return 'gray';
@@ -250,30 +247,18 @@ export function Stock() {
         </Box>
       )}
 
-      {loading && (
-        <Center h={200}>
-          <Loader size="sm" />
-        </Center>
-      )}
-
-      {!loading && !analysis && (
-        <Center h={200}>
-          <Text c="dimmed" size="sm">No analysis data yet.</Text>
-        </Center>
-      )}
-
-      {analysis && (
-        <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          <Box style={{ flex: 3, height: 500, minWidth: 0 }}>
-            <TvChart exchange={analysis.exchange} symbol={symbol!} />
-          </Box>
-          <Box style={{ flex: 1, borderLeft: '1px solid var(--mantine-color-dark-4)', height: 500 }}>
-            <BasicInfoPanel analysis={analysis} symbol={symbol!} />
-          </Box>
+      <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <Box style={{ flex: 3, height: 500, minWidth: 0, overflow: 'hidden' }}>
+          {analysis && <TvChart exchange={analysis.exchange} symbol={symbol!} />}
         </Box>
-      )}
+        <Box style={{ flex: 1, borderLeft: '1px solid var(--mantine-color-dark-4)', height: 500 }}>
+          {loading && <Center style={{ height: '100%' }}><Loader size="sm" /></Center>}
+          {!loading && !analysis && <Center style={{ height: '100%' }}><Text c="dimmed" size="sm">No analysis data yet.</Text></Center>}
+          {!loading && analysis && <BasicInfoPanel analysis={analysis} symbol={symbol!} />}
+        </Box>
+      </Box>
 
-      {analysis && (
+      {!loading && analysis && (
         <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--mantine-color-dark-4)' }}>
           <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
             <EpsChart title="EPS Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="eps" />
@@ -290,7 +275,7 @@ export function Stock() {
         </Box>
       )}
 
-      {analysis && (
+      {!loading && analysis && (
         <Accordion variant="separated" mt="xs">
           <Accordion.Item value="score">
             <Accordion.Control py={4} px="xs">
