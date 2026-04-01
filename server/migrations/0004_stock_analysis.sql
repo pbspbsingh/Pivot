@@ -5,6 +5,7 @@ CREATE TABLE stock_analysis (
     earnings     JSON     NOT NULL,
     forecast     JSON     NOT NULL,
     document     JSON     NOT NULL,
+    score        JSON,
     analyzed_at  DATETIME NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (symbol, watchlist_id)
 );

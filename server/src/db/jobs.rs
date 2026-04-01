@@ -104,12 +104,13 @@ pub async fn get_active(symbol: &str, watchlist_id: i64) -> Result<Option<Analys
                   status as "status: JobStatus", current_step as "current_step: PipelineStep",
                   error, retry_count, created_at, updated_at
            FROM analysis_jobs
-           WHERE symbol = ? AND watchlist_id = ? AND status IN (?, ?)
+           WHERE symbol = ? AND watchlist_id = ? AND status IN (?, ?, ?)
            ORDER BY id DESC LIMIT 1"#,
         symbol,
         watchlist_id,
         JobStatus::Pending,
         JobStatus::Running,
+        JobStatus::PartialCompleted,
     )
     .fetch_optional(pool())
     .await?;
@@ -130,13 +131,73 @@ pub async fn get_pending() -> Result<Option<AnalysisJob>> {
     Ok(job)
 }
 
-/// On server startup, reset any jobs left in `running` back to `pending`.
+/// On server startup, reset any scraping jobs left in `running` back to `pending`.
+/// Excludes scoring jobs (step = scoring) which are handled separately.
 pub async fn reset_running_to_pending() -> Result<()> {
     sqlx::query!(
-        "UPDATE analysis_jobs SET status = ?, current_step = ?, updated_at = datetime('now') WHERE status = ?",
+        "UPDATE analysis_jobs SET status = ?, current_step = ?, updated_at = datetime('now')
+         WHERE status = ? AND current_step != ?",
         JobStatus::Pending,
         PipelineStep::Queued,
         JobStatus::Running,
+        PipelineStep::Scoring,
+    )
+    .execute(pool())
+    .await?;
+    Ok(())
+}
+
+/// On server startup, reset any scoring jobs left in `running` back to `partial_completed`.
+pub async fn reset_scoring_running_to_partial_completed() -> Result<()> {
+    sqlx::query!(
+        "UPDATE analysis_jobs SET status = ?, updated_at = datetime('now')
+         WHERE status = ? AND current_step = ?",
+        JobStatus::PartialCompleted,
+        JobStatus::Running,
+        PipelineStep::Scoring,
+    )
+    .execute(pool())
+    .await?;
+    Ok(())
+}
+
+/// Transition a job to partial_completed after scraping finishes, ready for scoring.
+/// Resets retry_count so the scoring phase gets its own fresh retry budget.
+pub async fn set_partial_completed(job_id: i64) -> Result<()> {
+    sqlx::query!(
+        "UPDATE analysis_jobs SET status = ?, current_step = ?, retry_count = 0, updated_at = datetime('now') WHERE id = ?",
+        JobStatus::PartialCompleted,
+        PipelineStep::Scoring,
+        job_id,
+    )
+    .execute(pool())
+    .await?;
+    Ok(())
+}
+
+/// Fetch the oldest job waiting to be scored.
+pub async fn get_pending_scoring() -> Result<Option<AnalysisJob>> {
+    let job = sqlx::query_as!(
+        AnalysisJob,
+        r#"SELECT id, symbol, watchlist_id,
+                  status as "status: JobStatus", current_step as "current_step: PipelineStep",
+                  error, retry_count, created_at, updated_at
+           FROM analysis_jobs WHERE status = ? ORDER BY id ASC LIMIT 1"#,
+        JobStatus::PartialCompleted,
+    )
+    .fetch_optional(pool())
+    .await?;
+    Ok(job)
+}
+
+/// On scoring failure with retries remaining, reset back to partial_completed.
+pub async fn requeue_for_scoring(job_id: i64) -> Result<()> {
+    sqlx::query!(
+        "UPDATE analysis_jobs SET status = ?, current_step = ?, retry_count = retry_count + 1,
+         error = NULL, updated_at = datetime('now') WHERE id = ?",
+        JobStatus::PartialCompleted,
+        PipelineStep::Scoring,
+        job_id,
     )
     .execute(pool())
     .await?;

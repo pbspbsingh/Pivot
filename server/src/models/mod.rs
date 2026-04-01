@@ -12,6 +12,7 @@ use sqlx::FromRow;
 pub enum JobStatus {
     Pending,
     Running,
+    PartialCompleted,
     Completed,
     Failed,
 }
@@ -41,6 +42,7 @@ pub enum PipelineStep {
     Earnings,
     Forecast,
     Document,
+    Scoring,
     Done,
 }
 

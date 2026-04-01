@@ -10,7 +10,7 @@ pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
     pub chrome: ChromeConfig,
-    pub scorer: ScorerConfig,
+    pub scorer: Option<ScorerConfig>,
 }
 
 #[derive(Deserialize)]

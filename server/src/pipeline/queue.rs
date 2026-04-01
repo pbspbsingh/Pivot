@@ -8,32 +8,34 @@ use tokio::sync::OnceCell;
 use tokio::time::sleep;
 
 use crate::{
+    config::CONFIG,
     db,
     models::jobs::{AnalysisJob, JobSummary},
     models::pipeline::{EarningsData, EarningsRelease, ForecastData, StockBasicInfo},
     models::{JobStatus, PipelineStep},
-    pipeline::tradingview::TradingView,
+    pipeline::{score::Scorer, tradingview::TradingView},
     sse,
 };
-
-const PIPELINE: &[PipelineStep] = &[
-    PipelineStep::BasicInfo,
-    PipelineStep::Earnings,
-    PipelineStep::Forecast,
-    PipelineStep::Document,
-];
 
 const INTER_TICKER_DELAY: Duration = Duration::from_secs(3);
 const IDLE_POLL_INTERVAL: Duration = Duration::from_secs(10);
 const STARTUP_DELAY: Duration = Duration::from_secs(5);
+
 const MAX_JOB_RETRIES: i64 = 3;
 
 pub fn start() {
+    let scoring_enabled = CONFIG.scorer.is_some();
+
     tokio::spawn(async move {
         sleep(STARTUP_DELAY).await;
 
         if let Err(e) = db::jobs::reset_running_to_pending().await {
             tracing::error!("Failed to reset running jobs on startup: {e}");
+        }
+        if scoring_enabled {
+            if let Err(e) = db::jobs::reset_scoring_running_to_partial_completed().await {
+                tracing::error!("Failed to reset scoring jobs on startup: {e}");
+            }
         }
 
         match db::watchlists::list_all_active_stocks().await {
@@ -46,6 +48,7 @@ pub fn start() {
                     match db::jobs::get_latest(&symbol, watchlist_id).await {
                         Ok(Some(job))
                             if job.status == JobStatus::Completed
+                                || job.status == JobStatus::PartialCompleted
                                 || (job.status == JobStatus::Failed
                                     && job.retry_count >= MAX_JOB_RETRIES) =>
                         {
@@ -73,19 +76,45 @@ pub fn start() {
                         symbol = job.symbol,
                         watchlist_id = job.watchlist_id,
                         job_id = job.id,
-                        "Processing job"
+                        "Processing scraping job"
                     );
-                    process_job(job).await;
+                    process_scraping_job(job, scoring_enabled).await;
                     sleep(INTER_TICKER_DELAY).await;
                 }
                 Ok(None) => sleep(IDLE_POLL_INTERVAL).await,
                 Err(e) => {
-                    tracing::error!("Queue poll error: {e}");
+                    tracing::error!("Scraping queue poll error: {e}");
                     sleep(Duration::from_secs(5)).await;
                 }
             }
         }
     });
+
+    if scoring_enabled {
+        tokio::spawn(async move {
+            sleep(STARTUP_DELAY).await;
+
+            loop {
+                match db::jobs::get_pending_scoring().await {
+                    Ok(Some(job)) => {
+                        tracing::info!(
+                            symbol = job.symbol,
+                            watchlist_id = job.watchlist_id,
+                            job_id = job.id,
+                            "Processing scoring job"
+                        );
+                        process_scoring_job(job).await;
+                        sleep(INTER_TICKER_DELAY).await;
+                    }
+                    Ok(None) => sleep(IDLE_POLL_INTERVAL).await,
+                    Err(e) => {
+                        tracing::error!("Scoring queue poll error: {e}");
+                        sleep(Duration::from_secs(5)).await;
+                    }
+                }
+            }
+        });
+    }
 }
 
 fn broadcast_job(
@@ -108,7 +137,7 @@ fn broadcast_job(
 
 /// Returns the index of the first step without cached data, or None if all steps are cached.
 async fn find_resume_step(job_id: i64) -> Result<Option<usize>, String> {
-    for (i, &step) in PIPELINE.iter().enumerate() {
+    for (i, &step) in scraping_steps().iter().enumerate() {
         if db::jobs::get_step_data(job_id, step)
             .await
             .map_err(|e| e.to_string())?
@@ -179,7 +208,7 @@ async fn save_analysis(job_id: i64, symbol: &str, watchlist_id: i64) -> Result<(
     .map_err(|e| e.to_string())
 }
 
-async fn process_job(job: AnalysisJob) {
+async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
     let job_id = job.id;
     let symbol = job.symbol.clone();
     let watchlist_id = job.watchlist_id;
@@ -190,15 +219,7 @@ async fn process_job(job: AnalysisJob) {
             if let Err(e) = save_analysis(job_id, &symbol, watchlist_id).await {
                 tracing::warn!(job_id, symbol, "Failed to save analysis: {e}");
             }
-            db::jobs::complete(job_id).await.ok();
-            broadcast_job(
-                job_id,
-                &symbol,
-                watchlist_id,
-                JobStatus::Completed,
-                PipelineStep::Done,
-                None,
-            );
+            finish_scraping(job_id, &symbol, watchlist_id, scoring_enabled).await;
             return Ok(());
         };
 
@@ -207,7 +228,7 @@ async fn process_job(job: AnalysisJob) {
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Exchange not found for {symbol}"))?;
 
-        let resume_at = PIPELINE[start];
+        let resume_at = scraping_steps()[start];
         db::jobs::set_running(job_id, resume_at).await.ok();
         broadcast_job(
             job_id,
@@ -220,7 +241,7 @@ async fn process_job(job: AnalysisJob) {
 
         let tv = trading_view().await.map_err(|e| e.to_string())?;
 
-        for (i, &step) in PIPELINE[start..].iter().enumerate() {
+        for (i, &step) in scraping_steps()[start..].iter().enumerate() {
             if i > 0 {
                 db::jobs::set_step(job_id, step).await.ok();
                 broadcast_job(
@@ -264,16 +285,7 @@ async fn process_job(job: AnalysisJob) {
         if let Err(e) = save_analysis(job_id, &symbol, watchlist_id).await {
             tracing::warn!(job_id, symbol, "Failed to save analysis: {e}");
         }
-        db::jobs::complete(job_id).await.ok();
-        broadcast_job(
-            job_id,
-            &symbol,
-            watchlist_id,
-            JobStatus::Completed,
-            PipelineStep::Done,
-            None,
-        );
-        tracing::info!(job_id, symbol, watchlist_id, "Job completed");
+        finish_scraping(job_id, &symbol, watchlist_id, scoring_enabled).await;
         Ok(())
     }
     .await;
@@ -309,7 +321,140 @@ async fn process_job(job: AnalysisJob) {
     }
 }
 
+/// Transition a scraping job to its terminal state after all steps complete.
+async fn finish_scraping(job_id: i64, symbol: &str, watchlist_id: i64, scoring_enabled: bool) {
+    if scoring_enabled {
+        db::jobs::set_partial_completed(job_id).await.ok();
+        broadcast_job(
+            job_id,
+            symbol,
+            watchlist_id,
+            JobStatus::PartialCompleted,
+            PipelineStep::Scoring,
+            None,
+        );
+        tracing::info!(
+            job_id,
+            symbol,
+            watchlist_id,
+            "Scraping complete, queued for scoring"
+        );
+    } else {
+        db::jobs::complete(job_id).await.ok();
+        broadcast_job(
+            job_id,
+            symbol,
+            watchlist_id,
+            JobStatus::Completed,
+            PipelineStep::Done,
+            None,
+        );
+        tracing::info!(
+            job_id,
+            symbol,
+            watchlist_id,
+            "Job completed (scoring disabled)"
+        );
+    }
+}
+
+async fn process_scoring_job(job: AnalysisJob) {
+    let job_id = job.id;
+    let symbol = job.symbol.clone();
+    let watchlist_id = job.watchlist_id;
+    let attempt = job.retry_count + 1;
+
+    let result: Result<(), String> = async {
+        // If scoring step data already exists (e.g. crashed after save but before complete),
+        // skip the LLM call and go straight to saving the score.
+        if db::jobs::get_step_data(job_id, PipelineStep::Scoring)
+            .await
+            .map_err(|e| e.to_string())?
+            .is_none()
+        {
+            db::jobs::set_running(job_id, PipelineStep::Scoring)
+                .await
+                .ok();
+            broadcast_job(
+                job_id,
+                &symbol,
+                watchlist_id,
+                JobStatus::Running,
+                PipelineStep::Scoring,
+                None,
+            );
+
+            let scorer = scorer();
+            run_step(job_id, PipelineStep::Scoring, attempt, || {
+                scorer.evaluate_score(watchlist_id, &symbol)
+            })
+            .await?;
+        }
+
+        let score = load_step_data(job_id, PipelineStep::Scoring).await?;
+        if let Err(e) = db::analysis::save_score(&symbol, watchlist_id, &score).await {
+            tracing::warn!(job_id, symbol, "Failed to save score: {e}");
+        }
+        db::jobs::complete(job_id).await.ok();
+        broadcast_job(
+            job_id,
+            &symbol,
+            watchlist_id,
+            JobStatus::Completed,
+            PipelineStep::Done,
+            None,
+        );
+        tracing::info!(job_id, symbol, watchlist_id, "Scoring complete");
+        Ok(())
+    }
+    .await;
+
+    if let Err(e) = result {
+        db::jobs::fail(job_id, &e).await.ok();
+        if job.retry_count < MAX_JOB_RETRIES {
+            tracing::warn!(job_id, symbol, attempt, "Scoring failed, requeueing");
+            db::jobs::requeue_for_scoring(job_id).await.ok();
+            broadcast_job(
+                job_id,
+                &symbol,
+                watchlist_id,
+                JobStatus::PartialCompleted,
+                PipelineStep::Scoring,
+                None,
+            );
+        } else {
+            tracing::warn!(
+                job_id,
+                symbol,
+                "Scoring failed permanently after {attempt} attempts: {e}"
+            );
+            broadcast_job(
+                job_id,
+                &symbol,
+                watchlist_id,
+                JobStatus::Failed,
+                PipelineStep::Scoring,
+                Some(e),
+            );
+        }
+    }
+}
+
+fn scraping_steps() -> &'static [PipelineStep] {
+    &[
+        PipelineStep::BasicInfo,
+        PipelineStep::Earnings,
+        PipelineStep::Forecast,
+        PipelineStep::Document,
+    ]
+}
+
 async fn trading_view() -> anyhow::Result<&'static TradingView> {
     static TV: OnceCell<TradingView> = OnceCell::const_new();
     TV.get_or_try_init(TradingView::new).await
+}
+
+fn scorer() -> &'static Scorer {
+    static SCORER: std::sync::OnceLock<Scorer> = std::sync::OnceLock::new();
+    SCORER.get_or_init(Scorer::from_config)
 }

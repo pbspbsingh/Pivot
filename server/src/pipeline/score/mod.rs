@@ -27,19 +27,20 @@ pub struct Scorer {
 
 impl Scorer {
     pub fn from_config() -> Self {
-        match &CONFIG.scorer {
-            ScorerConfig::Ollama { host, model } => {
-                let driver = Box::new(ollama::Ollama::new(host.clone(), model.clone()));
-                Scorer { driver }
-            }
-            ScorerConfig::DeepSeek { api_key, model } => {
-                let driver = Box::new(deepseek::DeepSeek::new(api_key.clone(), model.clone()));
-                Scorer { driver }
-            }
-        }
+        let driver: Box<dyn LlmDriver> =
+            match CONFIG.scorer.as_ref().expect("Scorer not configured") {
+                ScorerConfig::Ollama { host, model } => {
+                    Box::new(ollama::Ollama::new(host.clone(), model.clone()))
+                }
+                ScorerConfig::DeepSeek { api_key, model } => {
+                    Box::new(deepseek::DeepSeek::new(api_key.clone(), model.clone()))
+                }
+            };
+        Scorer { driver }
     }
 
     // Can be used internally for testing
+    #[cfg(test)]
     fn new_custom_ollama(host: impl Into<String>, model: impl Into<String>) -> Self {
         let driver = Box::new(ollama::Ollama::new(host.into(), model.into()));
         Scorer { driver }

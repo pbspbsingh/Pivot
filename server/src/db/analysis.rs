@@ -4,7 +4,10 @@ use sqlx::{FromRow, types::Json};
 
 use crate::{
     db::pool,
-    models::pipeline::{EarningsData, EarningsRelease, ForecastData, StockBasicInfo},
+    models::{
+        pipeline::{EarningsData, EarningsRelease, ForecastData, StockBasicInfo},
+        score::StockScore,
+    },
 };
 
 #[derive(Debug, FromRow)]
@@ -15,6 +18,7 @@ pub struct StockAnalysis {
     pub earnings: Json<EarningsData>,
     pub forecast: Json<Option<ForecastData>>,
     pub document: Json<EarningsRelease>,
+    pub score: Option<Json<StockScore>>,
     pub analyzed_at: NaiveDateTime,
 }
 
@@ -51,6 +55,19 @@ pub async fn upsert(
     Ok(())
 }
 
+pub async fn save_score(symbol: &str, watchlist_id: i64, score: &StockScore) -> Result<()> {
+    let sc = Json(score);
+    sqlx::query!(
+        "UPDATE stock_analysis SET score = ? WHERE symbol = ? AND watchlist_id = ?",
+        sc,
+        symbol,
+        watchlist_id,
+    )
+    .execute(pool())
+    .await?;
+    Ok(())
+}
+
 pub async fn get(symbol: &str, watchlist_id: i64) -> Result<Option<StockAnalysis>> {
     let row = sqlx::query_as!(
         StockAnalysis,
@@ -59,6 +76,7 @@ pub async fn get(symbol: &str, watchlist_id: i64) -> Result<Option<StockAnalysis
                   earnings   as "earnings: Json<EarningsData>",
                   forecast   as "forecast: Json<Option<ForecastData>>",
                   document   as "document: Json<EarningsRelease>",
+                  score      as "score: Json<StockScore>",
                   analyzed_at
            FROM stock_analysis
            WHERE symbol = ? AND watchlist_id = ?"#,

@@ -214,7 +214,7 @@ async fn test_ep_model_benchmark() -> Result<()> {
     Ok(())
 }
 
-const OLLAMA_HOST: &str = "http://192.168.1.235:11434";
+const OLLAMA_HOST: &str = "http://192.168.1.230:11434";
 const VCP_CRITERIA_KEYS: &[&str] = &["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
 // Claude's reference scoring for GOOG (watchlist_id=2) against the VCP prompt.
