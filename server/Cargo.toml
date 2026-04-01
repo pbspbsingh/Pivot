@@ -40,3 +40,7 @@ chrome_driver = { path = "../../ChromeDriver" }
 
 # error handling
 anyhow = "1"
+
+# static file embedding (release only)
+rust-embed = "8"
+mime_guess = "2"

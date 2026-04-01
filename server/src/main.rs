@@ -1,4 +1,5 @@
 mod api;
+mod assets;
 mod config;
 mod db;
 mod models;
@@ -27,7 +28,8 @@ async fn main() -> Result<()> {
     let addr = format!("0.0.0.0:{}", CONFIG.server.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("Listening on {addr}");
-    axum::serve(listener, api::router()).await?;
+    let app = api::router().merge(assets::router());
+    axum::serve(listener, app).await?;
 
     Ok(())
 }
