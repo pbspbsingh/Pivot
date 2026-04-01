@@ -1,18 +1,7 @@
 import { ActionIcon, Badge, Group, Progress, Stack, Text, Tooltip } from '@mantine/core';
 import { IconPlayerPlay, IconAlertCircle, IconRefresh } from '@tabler/icons-react';
 import type { JobSummary } from '../types';
-import { computeProgress } from '../utils/jobProgress';
-
-
-const STEP_LABELS: Record<string, string> = {
-  queued: 'Queued',
-  basic_info: 'Basic Info',
-  earnings: 'Earnings',
-  forecast: 'Forecast',
-  document: 'Earnings Release',
-  done: 'Done',
-  failed: 'Failed',
-};
+import { computeProgress, STEP_LABELS } from '../utils/jobProgress';
 
 interface Props {
   symbol: string;

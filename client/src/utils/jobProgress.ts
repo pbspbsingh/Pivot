@@ -1,5 +1,16 @@
 import type { JobStep } from '../types';
 
+export const STEP_LABELS: Record<string, string> = {
+  queued: 'Queued',
+  basic_info: 'Basic Info',
+  earnings: 'Earnings',
+  forecast: 'Forecast',
+  document: 'Earnings Release',
+  scoring: 'Scoring',
+  done: 'Done',
+  failed: 'Failed',
+};
+
 const STEP_ORDER: JobStep[] = ['basic_info', 'earnings', 'forecast', 'document'];
 
 export function computeProgress(

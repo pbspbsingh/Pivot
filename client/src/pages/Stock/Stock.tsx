@@ -4,19 +4,10 @@ import { IconList, IconCopy, IconCheck } from '@tabler/icons-react';
 import { useParams } from 'react-router-dom';
 import { useAppStore } from '../../store';
 import { JobLogModal } from '../../components/JobLogModal';
-import { computeProgress } from '../../utils/jobProgress';
+import { computeProgress, STEP_LABELS } from '../../utils/jobProgress';
 import { jobsApi } from '../../api/jobs';
 import type { ForecastData, StockAnalysis } from '../../types';
 import { EpsChart } from '../../components/EpsChart';
-
-const STEP_LABELS: Record<string, string> = {
-  queued: 'Queued',
-  basic_info: 'Basic Info',
-  earnings: 'Earnings',
-  forecast: 'Forecast',
-  document: 'Earnings Release',
-  done: 'Done',
-};
 
 function TvChart({ exchange, symbol }: { exchange: string; symbol: string }) {
   const src = `https://www.tradingview.com/widgetembed/?symbol=${exchange}%3A${symbol}&interval=D&theme=dark&style=1&locale=en&hide_side_toolbar=0&allow_symbol_change=0&save_image=0`;
