@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CriteriaEntry {
@@ -11,6 +11,6 @@ pub struct CriteriaEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StockScore {
     pub score: f64,
-    pub criteria: HashMap<String, CriteriaEntry>,
+    pub criteria: BTreeMap<String, CriteriaEntry>,
     pub last_updated: NaiveDateTime,
 }

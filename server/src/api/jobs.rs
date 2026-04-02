@@ -1,7 +1,8 @@
 use axum::{Json, extract::Path, http::StatusCode};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
+use crate::models::score::CriteriaEntry;
 use crate::{
     api::error::{ApiError, ApiResult},
     db,
@@ -72,7 +73,7 @@ pub struct StockAnalysisResponse {
 #[derive(Deserialize)]
 pub struct SaveScoreRequest {
     pub score: f64,
-    pub criteria: std::collections::HashMap<String, crate::models::score::CriteriaEntry>,
+    pub criteria: BTreeMap<String, CriteriaEntry>,
 }
 
 pub async fn save_score(
