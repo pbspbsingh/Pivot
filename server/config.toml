@@ -10,7 +10,7 @@ binary = "/usr/bin/google-chrome"
 user_data_dir = "/home/pbs/Workspace/ChromeData"
 launch_if_needed = true
 
-[scorer]
-type = "ollama"
-host = "http://192.168.1.230:11434"
-model = "gemma3:27b"
+#[scorer]
+#type = "ollama"
+#host = "http://192.168.1.230:11434"
+#model = "gemma3:27b"

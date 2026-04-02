@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
-
 use crate::models::pipeline::StockBasicInfo;
+use anyhow::{Context, Result};
+use tracing::warn;
 
 use super::{TV_HOME, TradingView};
 
@@ -37,18 +37,17 @@ impl TradingView {
             .context("Industry value is not a string")?
             .ok_or_else(|| anyhow::anyhow!("Industry not found for {symbol} — TradingView page structure may have changed"))?;
 
-        // Business description sits in an element styled with the custom CSS
-        // property --business-description-row-height, which is a semantic
-        // marker unlikely to change across redesigns.
-        let description = self
+        let description = match self
             .page
-            .evaluate(
-                "document.querySelector('[style*=\"--business-description-row-height\"]')?.innerText?.trim() ?? null",
-            )
+            .find_element(r#"div[data-container-name="company-info-id"] div[class*="blockText-"]"#)
             .await
-            .context("Failed to query business description element")?
-            .into_value::<Option<String>>()
-            .context("Description value is not a string")?;
+        {
+            Ok(div) => div.inner_text().await?,
+            Err(_) => {
+                warn!("{symbol}'s description couldn't be found");
+                None
+            }
+        };
 
         Ok(StockBasicInfo {
             sector,
