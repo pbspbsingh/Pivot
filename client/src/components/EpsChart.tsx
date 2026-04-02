@@ -79,9 +79,15 @@ export function EpsChart({ title, entries, valueKey }: Props) {
             contentStyle={{ background: '#1a1a1a', border: '1px solid #3d3d3d', borderRadius: 4 }}
             labelStyle={{ color: '#e5e7eb', fontSize: 11 }}
             itemStyle={{ fontSize: 11 }}
-            formatter={(value: number, name: string) => {
-              if (name === 'Growth') return [`${value.toFixed(1)}%`, name];
-              return [formatValue(value, valueKey), name];
+            formatter={(value, name) => {
+              // 1. Check if name is 'Growth' AND value is a number
+              if (name === 'Growth' && typeof value === 'number') {
+                return [`${value.toFixed(1)}%`, name];
+              }
+
+              // 2. Fallback for other keys, casting value to number if formatValue expects it
+              // Or handle the undefined case explicitly
+              return [value !== undefined ? formatValue(value as number, valueKey) : '', name];
             }}
           />
           <Legend wrapperStyle={{ fontSize: 11, color: '#9ca3af' }} />

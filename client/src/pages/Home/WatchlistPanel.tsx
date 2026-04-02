@@ -177,7 +177,7 @@ export function WatchlistPanel({ watchlist }: Props) {
         return next;
       });
       const restored = stocks.find((s) => s.symbol === symbol);
-      addWatchlistStocks(watchlist.id, [{ symbol, score: restored?.score ?? null }]);
+      addWatchlistStocks(watchlist.id, [{ symbol, score: restored?.score ?? null, added_at: restored?.added_at ?? '' }]);
     } catch (e) {
       notifyError((e as Error).message);
     }
