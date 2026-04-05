@@ -33,6 +33,54 @@ function formatAxis(v: number, key: 'eps' | 'revenue') {
   return `$${v.toFixed(0)}`;
 }
 
+interface TooltipEntry {
+  label: string;
+  reported?: number;
+  estimate?: number;
+  beat: boolean | null;
+  growth?: number;
+  surprise?: number;
+}
+
+function CustomTooltip({ active, payload, label, valueKey }: {
+  active?: boolean;
+  payload?: { payload: TooltipEntry }[];
+  label?: string;
+  valueKey: 'eps' | 'revenue';
+}) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+
+  const row = (l: string, val: string, color?: string) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+      <span style={{ color: '#9ca3af' }}>{l}</span>
+      <span style={{ color: color ?? '#e5e7eb', fontWeight: 500 }}>{val}</span>
+    </div>
+  );
+
+  const signColor = (v: number) => v >= 0 ? '#22c55e' : '#ef4444';
+  const signStr = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+
+  return (
+    <div style={{ background: '#1a1a1a', border: '1px solid #3d3d3d', borderRadius: 4, padding: '6px 10px', fontSize: 11, minWidth: 160 }}>
+      <div style={{ color: '#e5e7eb', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+      {d.growth != null && row('Growth', signStr(d.growth), signColor(d.growth))}
+      {d.surprise != null && row('Surprise', signStr(d.surprise), signColor(d.surprise))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+        <span style={{ color: '#9ca3af' }}>Reported/Est</span>
+        <span>
+          <span style={{ color: d.beat == null ? '#e5e7eb' : d.beat ? '#22c55e' : '#ef4444', fontWeight: 500 }}>
+            {d.reported != null ? formatValue(d.reported, valueKey) : '—'}
+          </span>
+          <span style={{ color: '#3b82f6', fontWeight: 500 }}>
+            {' / '}{d.estimate != null ? formatValue(d.estimate, valueKey) : '—'}
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function EpsChart({ title, entries, valueKey }: Props) {
   const reportedKey = valueKey === 'eps' ? 'eps_reported' : 'revenue_reported';
   const estimateKey = valueKey === 'eps' ? 'eps_estimate' : 'revenue_estimate';
@@ -45,6 +93,10 @@ export function EpsChart({ title, entries, valueKey }: Props) {
       reported != null && prevReported != null && prevReported !== 0
         ? ((reported - prevReported) / Math.abs(prevReported)) * 100
         : undefined;
+    const surprise =
+      reported != null && estimate != null && estimate !== 0
+        ? ((reported - estimate) / Math.abs(estimate)) * 100
+        : undefined;
 
     return {
       label: e.period_label,
@@ -52,6 +104,7 @@ export function EpsChart({ title, entries, valueKey }: Props) {
       estimate: estimate ?? undefined,
       beat: reported != null && estimate != null ? reported >= estimate : null,
       growth,
+      surprise,
     };
   });
 
@@ -75,21 +128,7 @@ export function EpsChart({ title, entries, valueKey }: Props) {
             tick={{ fill: '#f59e0b', fontSize: 10 }}
             width={40}
           />
-          <Tooltip
-            contentStyle={{ background: '#1a1a1a', border: '1px solid #3d3d3d', borderRadius: 4 }}
-            labelStyle={{ color: '#e5e7eb', fontSize: 11 }}
-            itemStyle={{ fontSize: 11 }}
-            formatter={(value, name) => {
-              // 1. Check if name is 'Growth' AND value is a number
-              if (name === 'Growth' && typeof value === 'number') {
-                return [`${value.toFixed(1)}%`, name];
-              }
-
-              // 2. Fallback for other keys, casting value to number if formatValue expects it
-              // Or handle the undefined case explicitly
-              return [value !== undefined ? formatValue(value as number, valueKey) : '', name];
-            }}
-          />
+          <Tooltip content={<CustomTooltip valueKey={valueKey} />} />
           <Legend wrapperStyle={{ fontSize: 11, color: '#9ca3af' }} />
           <Bar yAxisId="left" dataKey="estimate" name="Estimate" fill="#3b82f6" radius={[2, 2, 0, 0]}>
             {data.map((_, i) => (
