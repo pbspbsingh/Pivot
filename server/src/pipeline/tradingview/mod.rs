@@ -58,6 +58,20 @@ impl TradingView {
             .with_context(|| format!("Page did not finish loading for {url}"))?
             .sleep()
             .await;
+
+        self.try_close_popup().await?;
+
+        Ok(())
+    }
+
+    async fn try_close_popup(&self) -> Result<()> {
+        if let Ok(close_btn) = self
+            .page
+            .find_element("button[data-qa-id='promo-dialog-close-button']")
+            .await
+        {
+            close_btn.click().await?;
+        }
         Ok(())
     }
 }
