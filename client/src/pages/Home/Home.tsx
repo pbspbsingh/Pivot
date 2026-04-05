@@ -2,13 +2,18 @@ import { useRef, useState } from 'react';
 import {
   ActionIcon,
   Button,
+  Divider,
   Group,
+  Input,
   Menu,
   Modal,
+  Popover,
+  SimpleGrid,
   Stack,
   Tabs,
   Text,
   TextInput,
+  UnstyledButton,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
@@ -27,6 +32,96 @@ function extractEmoji(input: string): string {
   const segments = [...new Intl.Segmenter().segment(input)];
   const found = segments.find(({ segment }) => /[^\u0020-\u007E]/.test(segment));
   return found?.segment ?? '';
+}
+
+const EMOJI_OPTIONS = [
+  '📋', '📈', '📉', '📊', '💰', '🔥', '⚡', '🎯',
+  '💎', '🚀', '⭐', '🌟', '💡', '🏆', '🔑', '🛡️',
+  '🌊', '🦁', '🐂', '🐻', '🎲', '🔮', '💫', '🌙',
+  '☀️', '🏅', '💪', '🧠', '👁️', '🎭',
+];
+
+interface EmojiPickerProps {
+  value: string;
+  onChange: (emoji: string) => void;
+}
+
+function EmojiPicker({ value, onChange }: EmojiPickerProps) {
+  const [opened, { open, close }] = useDisclosure(false);
+  const [customInput, setCustomInput] = useState('');
+
+  function handleSelect(emoji: string) {
+    onChange(emoji);
+    close();
+  }
+
+  function handleCustomChange(val: string) {
+    setCustomInput(val);
+    const emoji = extractEmoji(val);
+    if (emoji) {
+      onChange(emoji);
+      setCustomInput('');
+      close();
+    }
+  }
+
+  return (
+    <Input.Wrapper label="Icon">
+      <Popover opened={opened} onClose={close} withinPortal position="bottom-start">
+        <Popover.Target>
+          <UnstyledButton
+            onClick={opened ? close : open}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 24,
+              width: 42,
+              height: 36,
+              border: '1px solid var(--mantine-color-default-border)',
+              borderRadius: 'var(--mantine-radius-sm)',
+              background: 'var(--mantine-color-default)',
+              cursor: 'pointer',
+            }}
+          >
+            {value}
+          </UnstyledButton>
+        </Popover.Target>
+        <Popover.Dropdown p="xs">
+          <Stack gap="xs">
+            <SimpleGrid cols={8} spacing={2}>
+              {EMOJI_OPTIONS.map((emoji) => (
+                <ActionIcon
+                  key={emoji}
+                  variant={value === emoji ? 'filled' : 'subtle'}
+                  color="gray"
+                  size="lg"
+                  onClick={() => handleSelect(emoji)}
+                  style={{ fontSize: 18 }}
+                >
+                  {emoji}
+                </ActionIcon>
+              ))}
+            </SimpleGrid>
+            <Divider />
+            <TextInput
+              placeholder="or paste your own emoji"
+              value={customInput}
+              onChange={(e) => handleCustomChange(e.currentTarget.value)}
+              onFocus={() => setCustomInput('')}
+              size="xs"
+            />
+            <UnstyledButton
+              onClick={() => handleSelect(DEFAULT_ICON)}
+              style={{ fontSize: 12, color: 'var(--mantine-color-dimmed)', textAlign: 'center' }}
+            >
+              Reset to default
+            </UnstyledButton>
+          </Stack>
+        </Popover.Dropdown>
+      </Popover>
+    </Input.Wrapper>
+  );
 }
 
 export function Home() {
@@ -109,17 +204,7 @@ export function Home() {
       <Modal opened={createOpened} onClose={closeCreate} title="New Watchlist" size="sm">
         <Stack>
           <Group align="flex-end" gap="xs">
-            <TextInput
-              label="Icon"
-              value={iconInput}
-              onChange={(e) => {
-                const emoji = extractEmoji(e.currentTarget.value);
-                if (emoji) setIconInput(emoji);
-              }}
-              w={64}
-              styles={{ input: { textAlign: 'center' } }}
-              data-autofocus
-            />
+            <EmojiPicker value={iconInput} onChange={setIconInput} />
             <TextInput
               label="Name"
               placeholder="Watchlist name"
@@ -127,6 +212,7 @@ export function Home() {
               onChange={(e) => setNameInput(e.currentTarget.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               style={{ flex: 1 }}
+              data-autofocus
             />
           </Group>
           <Button onClick={handleCreate}>Create</Button>
@@ -136,25 +222,16 @@ export function Home() {
       <Modal opened={renameOpened} onClose={closeRename} title="Edit Watchlist" size="sm">
         <Stack>
           <Group align="flex-end" gap="xs">
-            <TextInput
-              label="Emoji"
-              ref={nameInputRef}
-              value={iconInput}
-              onChange={(e) => {
-                const emoji = extractEmoji(e.currentTarget.value);
-                if (emoji) setIconInput(emoji);
-              }}
-              w={64}
-              styles={{ input: { textAlign: 'center', fontSize: 20 } }}
-              data-autofocus
-            />
+            <EmojiPicker value={iconInput} onChange={setIconInput} />
             <TextInput
               label="Name"
               placeholder="Watchlist name"
               value={nameInput}
+              ref={nameInputRef}
               onChange={(e) => setNameInput(e.currentTarget.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleRename()}
               style={{ flex: 1 }}
+              data-autofocus
             />
           </Group>
           <Button onClick={handleRename}>Save</Button>
