@@ -7,7 +7,7 @@ import { sortNavStocks } from '../../utils/navSort';
 import { JobLogModal } from '../../components/JobLogModal';
 import { computeProgress, STEP_LABELS } from '../../utils/jobProgress';
 import { jobsApi } from '../../api/jobs';
-import type { ForecastData, StockAnalysis } from '../../types';
+import type { StockAnalysis } from '../../types';
 import { EpsChart } from '../../components/EpsChart';
 import { TvChart } from '../../components/TvChart';
 
@@ -29,21 +29,20 @@ function fmt(n: number | null | undefined, decimals = 2) {
 
 function BasicInfoPanel({ analysis, symbol }: { analysis: StockAnalysis; symbol: string }) {
   const { basic_info, forecast } = analysis;
-  const f: ForecastData = forecast;
-  const total = f.rating_total_analysts ?? 0;
 
-  const ratings = [
-    { label: 'Strong Buy', value: f.rating_strong_buy ?? 0, color: 'teal' },
-    { label: 'Buy', value: f.rating_buy ?? 0, color: 'green' },
-    { label: 'Hold', value: f.rating_hold ?? 0, color: 'yellow' },
-    { label: 'Sell', value: f.rating_sell ?? 0, color: 'orange' },
-    { label: 'Strong Sell', value: f.rating_strong_sell ?? 0, color: 'red' },
-  ];
+  const total = forecast?.rating_total_analysts ?? 0;
+  const ratings = forecast ? [
+    { label: 'Strong Buy', value: forecast.rating_strong_buy ?? 0, color: 'teal' },
+    { label: 'Buy', value: forecast.rating_buy ?? 0, color: 'green' },
+    { label: 'Hold', value: forecast.rating_hold ?? 0, color: 'yellow' },
+    { label: 'Sell', value: forecast.rating_sell ?? 0, color: 'orange' },
+    { label: 'Strong Sell', value: forecast.rating_strong_sell ?? 0, color: 'red' },
+  ] : [];
 
-  const priceMin = f.price_target_min ?? 0;
-  const priceMax = f.price_target_max ?? 0;
-  const priceAvg = f.price_target_average ?? 0;
-  const priceCurrent = f.price_current ?? 0;
+  const priceMin = forecast?.price_target_min ?? 0;
+  const priceMax = forecast?.price_target_max ?? 0;
+  const priceAvg = forecast?.price_target_average ?? 0;
+  const priceCurrent = forecast?.price_current ?? 0;
   const priceRange = priceMax - priceMin;
   const currentPct = priceRange > 0 ? ((priceCurrent - priceMin) / priceRange) * 100 : 0;
   const avgPct = priceRange > 0 ? ((priceAvg - priceMin) / priceRange) * 100 : 0;
@@ -87,83 +86,88 @@ function BasicInfoPanel({ analysis, symbol }: { analysis: StockAnalysis; symbol:
 
         <Divider />
 
-        {/* Consensus */}
-        <Group justify="space-between" align="center">
-          <Stack gap={0}>
-            <Text size="xs" c="dimmed">Consensus</Text>
-            <Badge color={consensusColor(f.rating_consensus)} variant="light" size="sm">
-              {f.rating_consensus ?? '—'}
-            </Badge>
-          </Stack>
-          <Stack gap={0} align="flex-end">
-            <Text size="xs" c="dimmed">{f.rating_analyst_count ?? f.price_target_analyst_count} analysts</Text>
-            <Text size="xs" c="dimmed">{f.rating_total_analysts} ratings</Text>
-          </Stack>
-        </Group>
+        {forecast ? (
+          <>
+            {/* Consensus */}
+            <Group justify="space-between" align="center">
+              <Stack gap={0}>
+                <Text size="xs" c="dimmed">Consensus</Text>
+                <Badge color={consensusColor(forecast.rating_consensus)} variant="light" size="sm">
+                  {forecast.rating_consensus ?? '—'}
+                </Badge>
+              </Stack>
+              <Stack gap={0} align="flex-end">
+                <Text size="xs" c="dimmed">{forecast.rating_analyst_count ?? forecast.price_target_analyst_count} analysts</Text>
+                <Text size="xs" c="dimmed">{forecast.rating_total_analysts} ratings</Text>
+              </Stack>
+            </Group>
 
-        {/* Ratings bar */}
-        {total > 0 && (
-          <Stack gap={4}>
-            <Group gap={2} style={{ borderRadius: 4, overflow: 'hidden' }}>
-              {ratings.map((r) => r.value > 0 && (
-                <Tooltip key={r.label} label={`${r.label}: ${r.value}`}>
-                  <Box
-                    style={{
-                      flex: r.value,
-                      height: 8,
-                      background: `var(--mantine-color-${r.color}-6)`,
-                    }}
-                  />
-                </Tooltip>
-              ))}
-            </Group>
-            <Group justify="space-between">
-              {ratings.map((r) => r.value > 0 && (
-                <Text key={r.label} size="xs" c="dimmed">{r.value}</Text>
-              ))}
-            </Group>
-          </Stack>
+            {/* Ratings bar */}
+            {total > 0 && (
+              <Stack gap={4}>
+                <Group gap={2} style={{ borderRadius: 4, overflow: 'hidden' }}>
+                  {ratings.map((r) => r.value > 0 && (
+                    <Tooltip key={r.label} label={`${r.label}: ${r.value}`}>
+                      <Box
+                        style={{
+                          flex: r.value,
+                          height: 8,
+                          background: `var(--mantine-color-${r.color}-6)`,
+                        }}
+                      />
+                    </Tooltip>
+                  ))}
+                </Group>
+                <Box style={{ display: 'flex', gap: 2 }}>
+                  {ratings.map((r) => r.value > 0 && (
+                    <Text key={r.label} size="xs" c="dimmed" style={{ flex: r.value, textAlign: 'center' }}>{r.value}</Text>
+                  ))}
+                </Box>
+              </Stack>
+            )}
+
+            <Divider />
+
+            {/* Price target */}
+            <Stack gap={6}>
+              <Group justify="space-between">
+                <Text size="xs" c="dimmed" fw={500}>Price Target</Text>
+                <Text size="xs" c="teal">${fmt(priceAvg)} (↑{fmt(forecast.price_target_average_upside_pct)}%)</Text>
+              </Group>
+              {/* Range bar */}
+              <Box style={{ position: 'relative', height: 6, background: 'var(--mantine-color-dark-4)', borderRadius: 3, marginTop: 16, overflow: 'visible' }}>
+                {/* Current price marker + label */}
+                <Box style={{
+                  position: 'absolute',
+                  left: `${Math.min(Math.max(currentPct, 0), 100)}%`,
+                  transform: 'translateX(-50%)',
+                }}>
+                  <Text size="xs" c="dimmed" title={`Current price: $${fmt(priceCurrent)}`} style={{ position: 'absolute', bottom: 10, whiteSpace: 'nowrap', transform: labelAlign(currentPct) }}>
+                    ${fmt(priceCurrent)}
+                  </Text>
+                  <Box style={{ width: 2, height: 10, background: 'var(--mantine-color-gray-4)', borderRadius: 1, marginTop: -2 }} />
+                </Box>
+                {/* Avg target marker + label */}
+                <Box style={{
+                  position: 'absolute',
+                  left: `${Math.min(Math.max(avgPct, 0), 100)}%`,
+                  transform: 'translateX(-50%)',
+                }}>
+                  <Text size="xs" c="teal" title={`Avg price target: $${fmt(priceAvg)}`} style={{ position: 'absolute', bottom: 10, whiteSpace: 'nowrap', transform: labelAlign(avgPct) }}>
+                    ${fmt(priceAvg)}
+                  </Text>
+                  <Box style={{ width: 2, height: 10, background: 'var(--mantine-color-teal-4)', borderRadius: 1, marginTop: -2 }} />
+                </Box>
+              </Box>
+              <Group justify="space-between">
+                <Text size="xs" c="dimmed" title={`Min price target: $${fmt(priceMin)}`}>${fmt(priceMin)}</Text>
+                <Text size="xs" c="dimmed" title={`Max price target: $${fmt(priceMax)}`}>${fmt(priceMax)}</Text>
+              </Group>
+            </Stack>
+          </>
+        ) : (
+          <Text size="xs" c="dimmed">No forecast data available</Text>
         )}
-
-        <Divider />
-
-        {/* Price target */}
-        <Stack gap={6}>
-          <Group justify="space-between">
-            <Text size="xs" c="dimmed" fw={500}>Price Target</Text>
-            <Text size="xs" c="teal">${fmt(priceAvg)} (↑{fmt(f.price_target_average_upside_pct)}%)</Text>
-          </Group>
-          {/* Range bar */}
-          <Box style={{ position: 'relative', height: 6, background: 'var(--mantine-color-dark-4)', borderRadius: 3, marginTop: 16, overflow: 'visible' }}>
-            {/* Current price marker + label */}
-            <Box style={{
-              position: 'absolute',
-              left: `${Math.min(Math.max(currentPct, 0), 100)}%`,
-              transform: 'translateX(-50%)',
-            }}>
-              <Text size="xs" c="dimmed" title={`Current price: $${fmt(priceCurrent)}`} style={{ position: 'absolute', bottom: 10, whiteSpace: 'nowrap', transform: labelAlign(currentPct) }}>
-                ${fmt(priceCurrent)}
-              </Text>
-              <Box style={{ width: 2, height: 10, background: 'var(--mantine-color-gray-4)', borderRadius: 1, marginTop: -2 }} />
-            </Box>
-            {/* Avg target marker + label */}
-            <Box style={{
-              position: 'absolute',
-              left: `${Math.min(Math.max(avgPct, 0), 100)}%`,
-              transform: 'translateX(-50%)',
-            }}>
-              <Text size="xs" c="teal" title={`Avg price target: $${fmt(priceAvg)}`} style={{ position: 'absolute', bottom: 10, whiteSpace: 'nowrap', transform: labelAlign(avgPct) }}>
-                ${fmt(priceAvg)}
-              </Text>
-              <Box style={{ width: 2, height: 10, background: 'var(--mantine-color-teal-4)', borderRadius: 1, marginTop: -2 }} />
-            </Box>
-          </Box>
-          <Group justify="space-between">
-            <Text size="xs" c="dimmed" title={`Min price target: $${fmt(priceMin)}`}>${fmt(priceMin)}</Text>
-            <Text size="xs" c="dimmed" title={`Max price target: $${fmt(priceMax)}`}>${fmt(priceMax)}</Text>
-          </Group>
-        </Stack>
-
 
         {basic_info.description && (
           <>
@@ -282,10 +286,10 @@ export function Stock() {
       )}
 
       <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <Box style={{ flex: 3, height: 500, minWidth: 0, overflow: 'hidden' }}>
+        <Box style={{ flex: 3, height: 550, minWidth: 0, overflow: 'hidden' }}>
           {(analysis || isActive) && <TvChart exchange={analysis?.exchange} symbol={symbol!} />}
         </Box>
-        <Box style={{ flex: 1, borderLeft: '1px solid var(--mantine-color-dark-4)', height: 500 }}>
+        <Box style={{ flex: 1, borderLeft: '1px solid var(--mantine-color-dark-4)', height: 550 }}>
           {loading && <Center style={{ height: '100%' }}><Loader size="sm" /></Center>}
           {!loading && !analysis && <Center style={{ height: '100%' }}><Text c="dimmed" size="sm">No analysis data yet.</Text></Center>}
           {!loading && analysis && <BasicInfoPanel analysis={analysis} symbol={symbol!} />}
@@ -295,16 +299,16 @@ export function Stock() {
       {!loading && analysis && (
         <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--mantine-color-dark-4)' }}>
           <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
-            <EpsChart title="EPS Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="eps" />
-          </Box>
-          <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
             <EpsChart title="EPS Annual" entries={analysis.earnings.annual_earnings} valueKey="eps" />
           </Box>
           <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
-            <EpsChart title="Revenue Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="revenue" />
+            <EpsChart title="EPS Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="eps" />
           </Box>
           <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
             <EpsChart title="Revenue Annual" entries={analysis.earnings.annual_earnings} valueKey="revenue" />
+          </Box>
+          <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
+            <EpsChart title="Revenue Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="revenue" />
           </Box>
         </Box>
       )}
