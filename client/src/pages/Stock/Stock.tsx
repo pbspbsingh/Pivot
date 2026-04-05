@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Accordion, ActionIcon, Badge, Box, Center, Code, Divider, Group, Loader, Progress, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
-import { IconList, IconCopy, IconCheck } from '@tabler/icons-react';
+import { IconList, IconCopy, IconSelectAll } from '@tabler/icons-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../store';
 import { sortNavStocks } from '../../utils/navSort';
@@ -10,6 +10,35 @@ import { jobsApi } from '../../api/jobs';
 import type { StockAnalysis } from '../../types';
 import { EpsChart } from '../../components/EpsChart';
 import { TvChart } from '../../components/TvChart';
+import { notifyError, notifySuccess } from '../../utils/notify';
+
+async function copyToClipboard(text: string, label: string) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      throw new Error('Clipboard API unavailable');
+    }
+    notifySuccess(`${label} copied`);
+  } catch {
+    // Fallback for Firefox and other browsers that block the Clipboard API.
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (!ok) throw new Error('execCommand copy returned false');
+      notifySuccess(`${label} copied`);
+    } catch (fallbackErr) {
+      console.error('Copy failed:', fallbackErr);
+      notifyError(`Failed to copy ${label.toLowerCase()}`);
+    }
+  }
+}
 
 
 function consensusColor(consensus: string | null) {
@@ -200,7 +229,9 @@ export function Stock() {
   const loading = currentKey !== null && loadedForKey !== currentKey;
   const [prompt, setPrompt] = useState<string | null>(null);
   const [promptLoading, setPromptLoading] = useState(false);
-  const [promptCopied, setPromptCopied] = useState(false);
+  const [promptCopyLoading, setPromptCopyLoading] = useState(false);
+  const scoreTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const promptCodeRef = useRef<HTMLElement>(null);
 
   const isActive = job?.status === 'pending' || job?.status === 'running';
   const isFailed = job?.status === 'failed';
@@ -316,14 +347,35 @@ export function Stock() {
       {!loading && analysis && (
         <Accordion variant="separated" mt="xs">
           <Accordion.Item value="score">
-            <Accordion.Control py={4} px="xs">
-              <Text size="xs" c="dimmed">
-                {analysis.score ? `Score: ${analysis.score.score.toFixed(1)}` : 'Score: No score available'}
-              </Text>
-            </Accordion.Control>
+            <Box style={{ position: 'relative' }}>
+              <Accordion.Control py={4} px="xs">
+                <Text size="xs" c="dimmed">
+                  {analysis.score ? `Score: ${analysis.score.score.toFixed(1)}` : 'Score: No score available'}
+                </Text>
+              </Accordion.Control>
+              <Tooltip label="Select all" position="left">
+                <ActionIcon
+                  variant="subtle" color="gray" size="xs"
+                  style={{ position: 'absolute', right: 56, top: '50%', transform: 'translateY(-50%)' }}
+                  onClick={(e) => { e.stopPropagation(); scoreTextareaRef.current?.select(); }}
+                >
+                  <IconSelectAll size={12} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Copy" position="left">
+                <ActionIcon
+                  variant="subtle" color="gray" size="xs"
+                  style={{ position: 'absolute', right: 32, top: '50%', transform: 'translateY(-50%)' }}
+                  onClick={(e) => { e.stopPropagation(); copyToClipboard(scoreJson, 'Score'); }}
+                >
+                  <IconCopy size={12} />
+                </ActionIcon>
+              </Tooltip>
+            </Box>
             <Accordion.Panel>
               <Stack gap="xs">
                 <textarea
+                  ref={scoreTextareaRef}
                   value={scoreJson}
                   onChange={(e) => { setScoreJson(e.target.value); setScoreError(null); }}
                   rows={12}
@@ -402,20 +454,49 @@ export function Stock() {
               >
                 <Text size="xs" c="dimmed">LLM Prompt</Text>
               </Accordion.Control>
-              <Tooltip label={promptCopied ? 'Copied!' : 'Copy prompt'} position="left">
+              <Tooltip label="Select all" position="left">
                 <ActionIcon
-                  variant="subtle"
-                  color={promptCopied ? 'teal' : 'gray'}
-                  size="xs"
-                  style={{ position: 'absolute', right: 32, top: '50%', transform: 'translateY(-50%)' }}
-                  onClick={() => {
-                    if (!prompt) return;
-                    navigator.clipboard.writeText(prompt);
-                    setPromptCopied(true);
-                    setTimeout(() => setPromptCopied(false), 2000);
+                  variant="subtle" color="gray" size="xs"
+                  style={{ position: 'absolute', right: 56, top: '50%', transform: 'translateY(-50%)' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const el = promptCodeRef.current;
+                    if (!el) return;
+                    const range = document.createRange();
+                    range.selectNodeContents(el);
+                    const sel = window.getSelection();
+                    sel?.removeAllRanges();
+                    sel?.addRange(range);
                   }}
                 >
-                  {promptCopied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                  <IconSelectAll size={12} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Copy prompt" position="left">
+                <ActionIcon
+                  variant="subtle" color="gray" size="xs"
+                  style={{ position: 'absolute', right: 32, top: '50%', transform: 'translateY(-50%)' }}
+                  disabled={promptCopyLoading}
+                  onClick={async () => {
+                    if (!watchlistId || !symbol) return;
+                    let text = prompt;
+                    if (!text) {
+                      setPromptCopyLoading(true);
+                      try {
+                        text = await jobsApi.getPrompt(Number(watchlistId), symbol);
+                        setPrompt(text);
+                      } catch (e) {
+                        console.error('Failed to fetch prompt:', e);
+                        notifyError('Failed to fetch prompt');
+                        setPromptCopyLoading(false);
+                        return;
+                      }
+                      setPromptCopyLoading(false);
+                    }
+                    copyToClipboard(text, 'Prompt');
+                  }}
+                >
+                  {promptCopyLoading ? <Loader size={10} /> : <IconCopy size={12} />}
                 </ActionIcon>
               </Tooltip>
             </Box>
@@ -423,7 +504,7 @@ export function Stock() {
               {promptLoading ? (
                 <Text size="xs" c="dimmed">Loading…</Text>
               ) : (
-                <Code block fz="xs" style={{ whiteSpace: 'pre-wrap', maxHeight: 500, overflow: 'auto' }}>
+                <Code ref={promptCodeRef} block fz="xs" style={{ whiteSpace: 'pre-wrap', maxHeight: 500, overflow: 'auto' }}>
                   {prompt ?? ''}
                 </Code>
               )}
