@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
-
 use crate::models::pipeline::ForecastData;
+use anyhow::{Context, Result};
+use tracing::warn;
 
 use super::{TV_HOME, TradingView, round2};
 
@@ -14,13 +14,19 @@ impl TradingView {
         let forecast_url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/forecast/");
         self.goto(&forecast_url).await?;
 
-        let forecast_raw = self
-            .evaluate_forecast_js()
-            .await
-            .context("Failed to evaluate forecast JS")?;
+        let forecast_raw = match self.evaluate_forecast_js().await {
+            Ok(forecast) => forecast,
+            Err(_) => {
+                warn!(
+                    "Failed to evaluate forecast JS, most likely forecast doesn't exist for '{exchange}:{symbol}'"
+                );
+                return Ok(None);
+            }
+        };
 
         if forecast_raw.is_null() {
-            return Ok(None);
+            warn!("Evaluation of forecast JS returned null");
+            anyhow::bail!("Evaluation of forecast JS returned null");
         }
 
         let f = &forecast_raw;

@@ -12,3 +12,4 @@ config.toml
 *.sqlite-shm
 *.sqlite-wal
 
+server/config.toml
