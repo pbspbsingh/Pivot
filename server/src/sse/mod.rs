@@ -38,8 +38,12 @@ pub fn init() {
 pub fn subscribe() -> impl Stream<Item = Result<Event, Infallible>> {
     let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER);
-    CLIENTS.lock().unwrap().insert(id, tx);
+    CLIENTS.lock().unwrap().insert(id, tx.clone());
     tracing::debug!("SSE client {id} connected");
+
+    // Send an immediate heartbeat so the client goes live without waiting
+    // for the next 10s broadcast tick.
+    let _ = tx.try_send(SseMessage::Heartbeat);
 
     ReceiverStream::new(rx).map(|msg| {
         Ok(match msg {
