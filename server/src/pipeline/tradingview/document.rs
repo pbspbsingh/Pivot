@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use chrome_driver::PageFeatures;
 use chrono::NaiveDate;
 
@@ -10,14 +10,14 @@ impl TradingView {
     /// Fetches the latest earnings document (8-K preferred, 10-K fallback) from
     /// the TradingView documents page and returns its date and markdown content.
     ///
-    /// Iterates cards in DOM order (most recent first). Within each card, 8-K is
-    /// preferred over 10-K. Clicking the button opens a popup whose right panel
-    /// contains the document body, which is converted to Markdown.
+    /// Returns `Ok(None)` if no documents are available for the ticker or all
+    /// candidates are external links — these are treated as success so the
+    /// overall pipeline job is not failed or retried.
     pub async fn fetch_earnings_release(
         &self,
         exchange: &str,
         symbol: &str,
-    ) -> Result<EarningsRelease> {
+    ) -> Result<Option<EarningsRelease>> {
         let url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/documents/?category=earnings");
         self.goto(&url).await?;
 
@@ -52,7 +52,8 @@ impl TradingView {
             .context("Card-scan JS returned non-JSON value")?;
 
         if candidates.is_empty() {
-            bail!("No 8-K or 10-K document found for {exchange}-{symbol}");
+            tracing::info!(symbol = %symbol, "No 8-K or 10-K document found, skipping");
+            return Ok(None);
         }
 
         for candidate in &candidates {
@@ -119,10 +120,10 @@ impl TradingView {
                     .with_context(|| format!("Failed to parse date \"{date_str}\""))?;
                 let earnings_release =
                     htmd::convert(&html).context("Failed to convert document HTML to Markdown")?;
-                return Ok(EarningsRelease {
+                return Ok(Some(EarningsRelease {
                     day,
                     earnings_release,
-                });
+                }));
             }
 
             // Popup had no inline content (likely an external link) — dismiss and try next.
@@ -142,9 +143,8 @@ impl TradingView {
             self.page.sleep().await;
         }
 
-        bail!(
-            "All document candidates for {exchange}-{symbol} are external links with no inline content"
-        );
+        tracing::info!(symbol = %symbol, "All document candidates are external links, skipping");
+        Ok(None)
     }
 }
 

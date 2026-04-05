@@ -195,14 +195,14 @@ async fn save_analysis(job_id: i64, symbol: &str, watchlist_id: i64) -> Result<(
     let basic_info: StockBasicInfo = load_step_data(job_id, PipelineStep::BasicInfo).await?;
     let earnings: EarningsData = load_step_data(job_id, PipelineStep::Earnings).await?;
     let forecast: Option<ForecastData> = load_step_data(job_id, PipelineStep::Forecast).await?;
-    let document: EarningsRelease = load_step_data(job_id, PipelineStep::Document).await?;
+    let document: Option<EarningsRelease> = load_step_data(job_id, PipelineStep::Document).await?;
     db::analysis::upsert(
         symbol,
         watchlist_id,
         &basic_info,
         &earnings,
         forecast.as_ref(),
-        &document,
+        document.as_ref(),
     )
     .await
     .map_err(|e| e.to_string())

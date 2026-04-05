@@ -96,7 +96,7 @@ impl Scorer {
 
 pub fn build_base_input(analysis: &StockAnalysis) -> Value {
     let earnings = &analysis.earnings.0;
-    let document = &analysis.document.0;
+    let document = analysis.document.0.as_ref();
 
     let most_recent_quarter = earnings
         .quarterly_earnings
@@ -108,8 +108,8 @@ pub fn build_base_input(analysis: &StockAnalysis) -> Value {
     json!({
         "quarterly_earnings":  earnings.quarterly_earnings,
         "annual_earnings":     earnings.annual_earnings,
-        "earnings_release":    document.earnings_release,
-        "report_date":         document.day.to_string(),
+        "earnings_release":    document.map(|d| d.earnings_release.as_str()).unwrap_or(""),
+        "report_date":         document.map(|d| d.day.to_string()).unwrap_or_default(),
         "most_recent_quarter": most_recent_quarter,
     })
 }

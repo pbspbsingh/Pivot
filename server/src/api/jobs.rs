@@ -65,7 +65,7 @@ pub struct StockAnalysisResponse {
     pub basic_info: StockBasicInfo,
     pub earnings: EarningsData,
     pub forecast: Option<ForecastData>,
-    pub document: EarningsRelease,
+    pub document: Option<EarningsRelease>,
     pub score: Option<crate::models::score::StockScore>,
     pub analyzed_at: String,
 }
