@@ -26,4 +26,6 @@ pub struct JobSummary {
     pub status: JobStatus,
     pub step: PipelineStep,
     pub error: Option<String>,
+    pub phase_started_at: Option<NaiveDateTime>,
+    pub accumulated_ms: i64,
 }

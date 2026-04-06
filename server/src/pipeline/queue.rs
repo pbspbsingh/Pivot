@@ -7,6 +7,8 @@ use serde::{Serialize, de::DeserializeOwned};
 use tokio::sync::OnceCell;
 use tokio::time::sleep;
 
+use chrono::NaiveDateTime;
+
 use crate::{
     config::CONFIG,
     db,
@@ -117,6 +119,7 @@ pub fn start() {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn broadcast_job(
     job_id: i64,
     symbol: &str,
@@ -124,6 +127,8 @@ fn broadcast_job(
     status: JobStatus,
     step: PipelineStep,
     error: Option<String>,
+    phase_started_at: Option<NaiveDateTime>,
+    accumulated_ms: i64,
 ) {
     sse::broadcast(sse::SseMessage::Job(JobSummary {
         job_id,
@@ -132,6 +137,8 @@ fn broadcast_job(
         status,
         step,
         error,
+        phase_started_at,
+        accumulated_ms,
     }));
 }
 
@@ -229,7 +236,10 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
             .ok_or_else(|| format!("Exchange not found for {symbol}"))?;
 
         let resume_at = scraping_steps()[start];
-        db::jobs::set_running(job_id, resume_at).await.ok();
+        let (phase_started_at, accumulated_ms) = db::jobs::set_running(job_id, resume_at)
+            .await
+            .map(|(t, ms)| (Some(t), ms))
+            .unwrap_or((None, 0));
         broadcast_job(
             job_id,
             &symbol,
@@ -237,6 +247,8 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
             JobStatus::Running,
             resume_at,
             None,
+            phase_started_at,
+            accumulated_ms,
         );
 
         let tv = trading_view().await.map_err(|e| e.to_string())?;
@@ -251,6 +263,8 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
                     JobStatus::Running,
                     step,
                     None,
+                    phase_started_at,
+                    accumulated_ms,
                 );
             }
             match step {
@@ -302,6 +316,8 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
                 JobStatus::Pending,
                 PipelineStep::Queued,
                 None,
+                None,
+                0,
             );
         } else {
             tracing::warn!(
@@ -316,6 +332,8 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
                 JobStatus::Failed,
                 PipelineStep::Queued,
                 Some(e),
+                None,
+                0,
             );
         }
     }
@@ -332,6 +350,8 @@ async fn finish_scraping(job_id: i64, symbol: &str, watchlist_id: i64, scoring_e
             JobStatus::PartialCompleted,
             PipelineStep::ScoreQueued,
             None,
+            None,
+            0,
         );
         tracing::info!(
             job_id,
@@ -348,6 +368,8 @@ async fn finish_scraping(job_id: i64, symbol: &str, watchlist_id: i64, scoring_e
             JobStatus::Completed,
             PipelineStep::Done,
             None,
+            None,
+            0,
         );
         tracing::info!(
             job_id,
@@ -372,9 +394,11 @@ async fn process_scoring_job(job: AnalysisJob) {
             .map_err(|e| e.to_string())?
             .is_none()
         {
-            db::jobs::set_running(job_id, PipelineStep::Scoring)
-                .await
-                .ok();
+            let (phase_started_at, accumulated_ms) =
+                db::jobs::set_running(job_id, PipelineStep::Scoring)
+                    .await
+                    .map(|(t, ms)| (Some(t), ms))
+                    .unwrap_or((None, 0));
             broadcast_job(
                 job_id,
                 &symbol,
@@ -382,6 +406,8 @@ async fn process_scoring_job(job: AnalysisJob) {
                 JobStatus::Running,
                 PipelineStep::Scoring,
                 None,
+                phase_started_at,
+                accumulated_ms,
             );
 
             let scorer = scorer();
@@ -403,6 +429,8 @@ async fn process_scoring_job(job: AnalysisJob) {
             JobStatus::Completed,
             PipelineStep::Done,
             None,
+            None,
+            0,
         );
         tracing::info!(job_id, symbol, watchlist_id, "Scoring complete");
         Ok(())
@@ -421,6 +449,8 @@ async fn process_scoring_job(job: AnalysisJob) {
                 JobStatus::PartialCompleted,
                 PipelineStep::ScoreQueued,
                 None,
+                None,
+                0,
             );
         } else {
             tracing::warn!(
@@ -435,6 +465,8 @@ async fn process_scoring_job(job: AnalysisJob) {
                 JobStatus::Failed,
                 PipelineStep::Scoring,
                 Some(e),
+                None,
+                0,
             );
         }
     }

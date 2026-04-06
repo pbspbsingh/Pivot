@@ -12,25 +12,33 @@ export const STEP_LABELS: Record<string, string> = {
   failed: 'Failed',
 };
 
-const STEP_ORDER: JobStep[] = ['basic_info', 'earnings', 'forecast', 'document', 'scoring'];
+const SCRAPING_STEPS: JobStep[] = ['basic_info', 'earnings', 'forecast', 'document'];
+
+function formatDuration(totalSec: number): string {
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 export function computeProgress(
-  currentStep: JobStep,
+  step: JobStep,
+  phaseStartedAt: string | null,
+  accumulatedMs: number,
   stepAvgMs: Record<string, number>,
-): { value: number; label: string | null } {
-  const completedIdx = STEP_ORDER.indexOf(currentStep);
-  if (completedIdx < 0) return { value: 0, label: null };
+  nowMs: number,
+): { value: number; elapsed: string; expected: string | null } {
+  const scrapingTotal = SCRAPING_STEPS.reduce((sum, s) => sum + (stepAvgMs[s] ?? 0), 0);
+  const scoringTotal = stepAvgMs['scoring'] ?? 0;
+  const grandTotal = scrapingTotal + scoringTotal;
 
-  const totalMs = STEP_ORDER.reduce((sum, s) => sum + (stepAvgMs[s] ?? 0), 0);
-  if (totalMs === 0) {
-    return { value: Math.round((completedIdx / STEP_ORDER.length) * 100), label: null };
+  let elapsedMs = accumulatedMs;
+  if (phaseStartedAt) {
+    elapsedMs += nowMs - new Date(phaseStartedAt + 'Z').getTime();
   }
 
-  const doneMs = STEP_ORDER.slice(0, completedIdx).reduce((sum, s) => sum + (stepAvgMs[s] ?? 0), 0);
-  const value = Math.round((doneMs / totalMs) * 100);
+  const value = grandTotal > 0 ? Math.min(Math.round((elapsedMs / grandTotal) * 100), 99) : 0;
+  const elapsed = formatDuration(Math.max(0, Math.floor(elapsedMs / 1000)));
+  const expected = grandTotal > 0 ? formatDuration(Math.floor(grandTotal / 1000)) : null;
 
-  const remainingMs = totalMs - doneMs;
-  const label = remainingMs > 0 ? `~${Math.ceil(remainingMs / 1000)}s` : null;
-
-  return { value, label };
+  return { value, elapsed, expected };
 }

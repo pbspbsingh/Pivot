@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import { ActionIcon, Badge, Group, Progress, Stack, Text, Tooltip } from '@mantine/core';
 import { IconPlayerPlay, IconAlertCircle, IconRotateClockwise, IconTrash, IconRefresh } from '@tabler/icons-react';
 import type { JobSummary } from '../types';
 import { computeProgress, STEP_LABELS } from '../utils/jobProgress';
+import { AnimatedTime } from './AnimatedTime';
 
 interface Props {
   job: JobSummary | undefined;
@@ -14,6 +16,14 @@ interface Props {
 }
 
 export function JobStatusCell({ job, stepAvgMs }: Pick<Props, 'job' | 'stepAvgMs'>) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (job?.status !== 'running') return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [job?.status]);
+
   if (!job || job.status === 'completed') {
     return <Text size="xs" c={job?.status === 'completed' ? 'teal' : 'dimmed'}>{job?.status === 'completed' ? 'Done' : '—'}</Text>;
   }
@@ -27,20 +37,28 @@ export function JobStatusCell({ job, stepAvgMs }: Pick<Props, 'job' | 'stepAvgMs
   }
 
   if (job.step === 'score_queued') {
-    return <Badge color="violet" variant="light" size="sm">Score Queued</Badge>;
+    const { value, elapsed, expected } = computeProgress(job.step, null, job.accumulated_ms, stepAvgMs, nowMs);
+    return (
+      <Stack gap={2} style={{ minWidth: 120 }}>
+        <Group justify="space-between" gap={4}>
+          <Badge color="violet" variant="light" size="sm">Score Queued</Badge>
+          <Text size="xs" c="dimmed"><AnimatedTime time={elapsed} />{expected && ` / ${expected}`}</Text>
+        </Group>
+        <Progress value={value} size="xs" color="blue" />
+      </Stack>
+    );
   }
 
-  // Running — show step label + progress bar with timing estimate.
   const stepLabel = STEP_LABELS[job.step] ?? job.step;
-  const { value: progressValue, label: etaLabel } = computeProgress(job.step, stepAvgMs);
+  const { value, elapsed, expected } = computeProgress(job.step, job.phase_started_at, job.accumulated_ms, stepAvgMs, nowMs);
 
   return (
     <Stack gap={2} style={{ minWidth: 120 }}>
       <Group justify="space-between" gap={4}>
         <Text size="xs" c="dimmed">{stepLabel}</Text>
-        {etaLabel && <Text size="xs" c="dimmed">{etaLabel}</Text>}
+        <Text size="xs" c="dimmed"><AnimatedTime time={elapsed} />{expected && ` / ${expected}`}</Text>
       </Group>
-      <Progress value={progressValue} animated={progressValue === 0} size="xs" color="blue" />
+      <Progress value={value} animated={value === 0} size="xs" color="blue" />
     </Stack>
   );
 }
@@ -81,4 +99,3 @@ export function JobActionsCell({ job, isDeleted, onAnalyze, onViewLog, onDelete,
     </Group>
   );
 }
-

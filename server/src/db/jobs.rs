@@ -29,12 +29,14 @@ pub async fn enqueue(symbol: &str, watchlist_id: i64) -> Result<AnalysisJob> {
         return Ok(job);
     }
     // Reuse a failed job (reset to pending) so cached step data is preserved.
+    // Reset accumulated_ms so the timer starts fresh for the new attempt.
     if let Some(job) = get_failed(symbol, watchlist_id).await? {
         let job = sqlx::query_as!(
             AnalysisJob,
             r#"UPDATE analysis_jobs
                SET status = ?, current_step = ?, error = NULL,
-                   retry_count = retry_count + 1, updated_at = datetime('now')
+                   retry_count = retry_count + 1, updated_at = datetime('now'),
+                   accumulated_ms = 0
                WHERE id = ?
                RETURNING id as "id!", symbol as "symbol!", watchlist_id as "watchlist_id!",
                          status as "status!: JobStatus", current_step as "current_step!: PipelineStep",
@@ -133,9 +135,11 @@ pub async fn get_pending() -> Result<Option<AnalysisJob>> {
 
 /// On server startup, reset any scraping jobs left in `running` back to `pending`.
 /// Excludes scoring jobs (step = scoring) which are handled separately.
+/// Clears timing so the retried attempt gets a fresh timer.
 pub async fn reset_running_to_pending() -> Result<()> {
     sqlx::query!(
-        "UPDATE analysis_jobs SET status = ?, current_step = ?, updated_at = datetime('now')
+        "UPDATE analysis_jobs SET status = ?, current_step = ?, updated_at = datetime('now'),
+         phase_started_at = NULL, accumulated_ms = 0
          WHERE status = ? AND current_step != ?",
         JobStatus::Pending,
         PipelineStep::Queued,
@@ -148,9 +152,12 @@ pub async fn reset_running_to_pending() -> Result<()> {
 }
 
 /// On server startup, reset any scoring jobs left in `running` back to `partial_completed`.
+/// Clears phase_started_at so scoring gets a fresh timer when it restarts.
+/// Preserves accumulated_ms (scraping elapsed time remains in the total).
 pub async fn reset_scoring_running_to_partial_completed() -> Result<()> {
     sqlx::query!(
-        "UPDATE analysis_jobs SET status = ?, current_step = ?, updated_at = datetime('now')
+        "UPDATE analysis_jobs SET status = ?, current_step = ?, updated_at = datetime('now'),
+         phase_started_at = NULL
          WHERE status = ? AND current_step = ?",
         JobStatus::PartialCompleted,
         PipelineStep::ScoreQueued,
@@ -164,9 +171,18 @@ pub async fn reset_scoring_running_to_partial_completed() -> Result<()> {
 
 /// Transition a job to partial_completed after scraping finishes, ready for scoring.
 /// Resets retry_count so the scoring phase gets its own fresh retry budget.
+/// Folds the scraping phase elapsed time into accumulated_ms and clears phase_started_at.
 pub async fn set_partial_completed(job_id: i64) -> Result<()> {
     sqlx::query!(
-        "UPDATE analysis_jobs SET status = ?, current_step = ?, retry_count = 0, updated_at = datetime('now') WHERE id = ?",
+        "UPDATE analysis_jobs
+         SET status = ?, current_step = ?, retry_count = 0, updated_at = datetime('now'),
+             accumulated_ms = accumulated_ms + CASE
+                 WHEN phase_started_at IS NOT NULL
+                 THEN CAST((julianday('now') - julianday(phase_started_at)) * 86400000 AS INTEGER)
+                 ELSE 0
+             END,
+             phase_started_at = NULL
+         WHERE id = ?",
         JobStatus::PartialCompleted,
         PipelineStep::ScoreQueued,
         job_id,
@@ -205,15 +221,21 @@ pub async fn requeue_for_scoring(job_id: i64) -> Result<()> {
     Ok(())
 }
 
-pub async fn set_running(job_id: i64, step: PipelineStep) -> Result<()> {
-    sqlx::query!(
-        "UPDATE analysis_jobs SET status = 'running', current_step = ?, updated_at = datetime('now') WHERE id = ?",
+/// Sets the job to running and records a fresh phase_started_at for this phase.
+/// Returns (phase_started_at, accumulated_ms) so callers can include them in SSE broadcasts.
+pub async fn set_running(job_id: i64, step: PipelineStep) -> Result<(NaiveDateTime, i64)> {
+    let row = sqlx::query!(
+        r#"UPDATE analysis_jobs
+           SET status = 'running', current_step = ?, updated_at = datetime('now'),
+               phase_started_at = datetime('now')
+           WHERE id = ?
+           RETURNING phase_started_at as "phase_started_at!", accumulated_ms as "accumulated_ms!""#,
         step,
         job_id,
     )
-    .execute(pool())
+    .fetch_one(pool())
     .await?;
-    Ok(())
+    Ok((row.phase_started_at, row.accumulated_ms))
 }
 
 pub async fn set_step(job_id: i64, step: PipelineStep) -> Result<()> {
@@ -241,7 +263,7 @@ pub async fn complete(job_id: i64) -> Result<()> {
 
 pub async fn fail(job_id: i64, error: &str) -> Result<()> {
     sqlx::query!(
-        "UPDATE analysis_jobs SET status = ?, error = ?, updated_at = datetime('now') WHERE id = ?",
+        "UPDATE analysis_jobs SET status = ?, error = ?, phase_started_at = NULL, updated_at = datetime('now') WHERE id = ?",
         JobStatus::Failed,
         error,
         job_id,
@@ -313,7 +335,8 @@ pub async fn list_jobs_for_watchlist(watchlist_id: i64) -> Result<Vec<JobSummary
     let rows = sqlx::query_as!(
         JobSummary,
         r#"SELECT j.id as "job_id!", j.symbol as "symbol!", j.watchlist_id as "watchlist_id!",
-                  j.status as "status!: JobStatus", j.current_step as "step!: PipelineStep", j.error
+                  j.status as "status!: JobStatus", j.current_step as "step!: PipelineStep", j.error,
+                  j.phase_started_at, j.accumulated_ms as "accumulated_ms!"
            FROM analysis_jobs j
            INNER JOIN (
                SELECT symbol, MAX(id) as max_id

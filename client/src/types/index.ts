@@ -35,6 +35,8 @@ export interface JobSummary {
   status: JobStatus;
   step: JobStep;
   error: string | null;
+  phase_started_at: string | null;
+  accumulated_ms: number;
 }
 
 export interface WatchlistJobsResponse {
