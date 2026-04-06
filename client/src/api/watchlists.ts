@@ -12,4 +12,5 @@ export const watchlistApi = {
     api.post<{ added: string[]; failed: string[] }>(`/watchlists/${id}/stocks`, { symbols }),
   deleteStock: (id: number, symbol: string) => api.delete<void>(`/watchlists/${id}/stocks/${symbol}`),
   restoreStock: (id: number, symbol: string) => api.post<void>(`/watchlists/${id}/stocks/${symbol}/restore`, {}),
+  reorder: (ids: number[]) => api.post<void>('/watchlists/reorder', { ids }),
 };

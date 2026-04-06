@@ -21,6 +21,7 @@ pub fn router() -> Router {
             "/api/watchlists",
             get(watchlists::list).post(watchlists::create),
         )
+        .route("/api/watchlists/reorder", post(watchlists::reorder))
         .route(
             "/api/watchlists/{id}",
             patch(watchlists::rename).delete(watchlists::delete),

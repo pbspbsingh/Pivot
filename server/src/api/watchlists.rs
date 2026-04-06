@@ -19,6 +19,11 @@ pub struct AddStocksBody {
     pub symbols: Vec<String>,
 }
 
+#[derive(Deserialize)]
+pub struct ReorderBody {
+    pub ids: Vec<i64>,
+}
+
 #[derive(Serialize)]
 pub struct AddStocksResponse {
     added: Vec<String>,
@@ -157,6 +162,14 @@ pub async fn delete_stock(
     let symbol = symbol.to_uppercase();
     db::watchlists::soft_delete_stock(id, &symbol).await?;
     tracing::info!(watchlist_id = id, symbol, "Stock removed from watchlist");
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn reorder(
+    Json(body): Json<ReorderBody>,
+) -> ApiResult<impl axum::response::IntoResponse> {
+    db::watchlists::reorder(&body.ids).await?;
+    tracing::info!(ids = ?body.ids, "Watchlists reordered");
     Ok(StatusCode::NO_CONTENT)
 }
 

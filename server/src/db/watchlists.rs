@@ -8,11 +8,27 @@ use crate::{
 pub async fn list() -> Result<Vec<Watchlist>> {
     let rows = sqlx::query_as!(
         Watchlist,
-        r#"SELECT id, name, is_default, emoji FROM watchlists ORDER BY is_default DESC, created_at ASC"#
+        r#"SELECT id, name, is_default, emoji FROM watchlists ORDER BY is_default DESC, position ASC"#
     )
     .fetch_all(pool())
     .await?;
     Ok(rows)
+}
+
+pub async fn reorder(ids: &[i64]) -> Result<()> {
+    let mut tx = pool().begin().await?;
+    for (pos, &id) in ids.iter().enumerate() {
+        let position = pos as i64;
+        sqlx::query!(
+            "UPDATE watchlists SET position = ? WHERE id = ? AND is_default = FALSE",
+            position,
+            id
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(())
 }
 
 pub async fn get(id: i64) -> Result<Option<Watchlist>> {

@@ -1,4 +1,20 @@
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  horizontalListSortingStrategy,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   ActionIcon,
   Button,
@@ -16,7 +32,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconPencil, IconPlus, IconTrash, IconGripVertical } from '@tabler/icons-react';
 import { watchlistApi } from '../../api/watchlists';
 import { useAppStore } from '../../store';
 import type { Watchlist } from '../../types';
@@ -124,12 +140,45 @@ function EmojiPicker({ value, onChange }: EmojiPickerProps) {
   );
 }
 
+interface SortableTabProps {
+  id: string;
+  children: React.ReactNode;
+}
+
+function SortableTab({ id, children }: SortableTabProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        cursor: isDragging ? 'grabbing' : undefined,
+      }}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        style={{ display: 'flex', alignItems: 'center', padding: '0 2px', cursor: 'grab', color: 'var(--mantine-color-dark-3)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <IconGripVertical size={12} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function Home() {
   const tabOrientation = useAppStore((s) => s.tabOrientation);
   const watchlists = useAppStore((s) => s.watchlists);
   const addWatchlist = useAppStore((s) => s.addWatchlist);
   const updateWatchlist = useAppStore((s) => s.updateWatchlist);
   const removeWatchlist = useAppStore((s) => s.removeWatchlist);
+  const setWatchlists = useAppStore((s) => s.setWatchlists);
 
   const [activeId, setActiveId] = useState<string | null>(
     () => localStorage.getItem('activeWatchlistId'),
@@ -152,6 +201,27 @@ export function Home() {
   const [createOpened, { open: openCreate, close: closeCreate }] = useDisclosure(false);
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = watchlists.findIndex((w) => String(w.id) === active.id);
+    const newIndex = watchlists.findIndex((w) => String(w.id) === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(watchlists, oldIndex, newIndex);
+    setWatchlists(reordered);
+    const ids = reordered.filter((w) => !w.is_default).map((w) => w.id);
+    try {
+      await watchlistApi.reorder(ids);
+    } catch (e) {
+      notifyError((e as Error).message);
+      setWatchlists(watchlists);
+    }
+  }
 
   function onContextMenuRename(w: Watchlist) {
     setTargetWatchlist(w);
@@ -269,44 +339,57 @@ export function Home() {
         orientation={tabOrientation === 'vertical' ? 'vertical' : 'horizontal'}
         style={{ height: '100%' }}
       >
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext
+            items={watchlists.map((w) => String(w.id))}
+            strategy={tabOrientation === 'vertical' ? verticalListSortingStrategy : horizontalListSortingStrategy}
+          >
         <Tabs.List style={tabOrientation === 'vertical' ? { minWidth: 160 } : undefined}>
-          {watchlists.map((w) => (
-            <Menu
-              key={w.id}
-              opened={menuOpenId === w.id}
-              onChange={(o) => !o && setMenuOpenId(null)}
-              disabled={w.is_default}
-              withinPortal
-            >
-              <Menu.Target>
-                <Tabs.Tab
-                  value={String(w.id)}
-                  onContextMenu={(e) => {
-                    if (w.is_default) return;
-                    e.preventDefault();
-                    setMenuOpenId(w.id);
-                  }}
-                >
-                  {w.emoji} {w.name}
-                </Tabs.Tab>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Item
-                  leftSection={<IconPencil size={14} />}
-                  onClick={() => onContextMenuRename(w)}
-                >
-                  Edit
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconTrash size={14} />}
-                  color="red"
-                  onClick={() => onContextMenuDelete(w)}
-                >
-                  Delete
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          ))}
+          {watchlists.map((w) => {
+            const menu = (
+              <Menu
+                opened={menuOpenId === w.id}
+                onChange={(o) => !o && setMenuOpenId(null)}
+                disabled={w.is_default}
+                withinPortal
+              >
+                <Menu.Target>
+                  <Tabs.Tab
+                    value={String(w.id)}
+                    onContextMenu={(e) => {
+                      if (w.is_default) return;
+                      e.preventDefault();
+                      setMenuOpenId(w.id);
+                    }}
+                  >
+                    {w.emoji} {w.name}
+                  </Tabs.Tab>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<IconPencil size={14} />}
+                    onClick={() => onContextMenuRename(w)}
+                  >
+                    Edit
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconTrash size={14} />}
+                    color="red"
+                    onClick={() => onContextMenuDelete(w)}
+                  >
+                    Delete
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            );
+            return w.is_default ? (
+              <React.Fragment key={w.id}>{menu}</React.Fragment>
+            ) : (
+              <SortableTab key={w.id} id={String(w.id)}>
+                {menu}
+              </SortableTab>
+            );
+          })}
           {tabOrientation === 'vertical' ? (
             <Button
               variant="subtle"
@@ -339,6 +422,8 @@ export function Home() {
             </ActionIcon>
           )}
         </Tabs.List>
+          </SortableContext>
+        </DndContext>
 
         {watchlists.map((w) => (
           <Tabs.Panel key={w.id} value={String(w.id)} pt="xs" style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
