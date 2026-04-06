@@ -25,6 +25,13 @@ const STARTUP_DELAY: Duration = Duration::from_secs(5);
 
 const MAX_JOB_RETRIES: i64 = 3;
 
+const SCRAPING_STEPS: &[PipelineStep] = &[
+    PipelineStep::BasicInfo,
+    PipelineStep::Earnings,
+    PipelineStep::Forecast,
+    PipelineStep::Document,
+];
+
 pub fn start() {
     let scoring_enabled = CONFIG.scorer.is_some();
 
@@ -144,7 +151,7 @@ fn broadcast_job(
 
 /// Returns the index of the first step without cached data, or None if all steps are cached.
 async fn find_resume_step(job_id: i64) -> Result<Option<usize>, String> {
-    for (i, &step) in scraping_steps().iter().enumerate() {
+    for (i, &step) in SCRAPING_STEPS.iter().enumerate() {
         if db::jobs::get_step_data(job_id, step)
             .await
             .map_err(|e| e.to_string())?
@@ -235,7 +242,7 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Exchange not found for {symbol}"))?;
 
-        let resume_at = scraping_steps()[start];
+        let resume_at = SCRAPING_STEPS[start];
         let (phase_started_at, accumulated_ms) = db::jobs::set_running(job_id, resume_at)
             .await
             .map(|(t, ms)| (Some(t), ms))
@@ -253,7 +260,7 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
 
         let tv = trading_view().await.map_err(|e| e.to_string())?;
 
-        for (i, &step) in scraping_steps()[start..].iter().enumerate() {
+        for (i, &step) in SCRAPING_STEPS[start..].iter().enumerate() {
             if i > 0 {
                 db::jobs::set_step(job_id, step).await.ok();
                 broadcast_job(
@@ -470,15 +477,6 @@ async fn process_scoring_job(job: AnalysisJob) {
             );
         }
     }
-}
-
-fn scraping_steps() -> &'static [PipelineStep] {
-    &[
-        PipelineStep::BasicInfo,
-        PipelineStep::Earnings,
-        PipelineStep::Forecast,
-        PipelineStep::Document,
-    ]
 }
 
 async fn trading_view() -> anyhow::Result<&'static TradingView> {
