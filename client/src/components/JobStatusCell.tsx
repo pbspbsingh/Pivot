@@ -26,6 +26,10 @@ export function JobStatusCell({ job, stepAvgMs }: Pick<Props, 'job' | 'stepAvgMs
     return <Badge color="gray" variant="light" size="sm">Queued</Badge>;
   }
 
+  if (job.step === 'score_queued') {
+    return <Badge color="violet" variant="light" size="sm">Score Queued</Badge>;
+  }
+
   // Running — show step label + progress bar with timing estimate.
   const stepLabel = STEP_LABELS[job.step] ?? job.step;
   const { value: progressValue, label: etaLabel } = computeProgress(job.step, stepAvgMs);
@@ -42,7 +46,7 @@ export function JobStatusCell({ job, stepAvgMs }: Pick<Props, 'job' | 'stepAvgMs
 }
 
 export function JobActionsCell({ job, isDeleted, onAnalyze, onViewLog, onDelete, onRestore }: Omit<Props, 'stepAvgMs'>) {
-  const isRunning = job?.status === 'pending' || job?.status === 'running';
+  const isRunning = job?.status === 'pending' || job?.status === 'running' || job?.status === 'partial_completed';
 
   return (
     <Group gap={4} wrap="nowrap">

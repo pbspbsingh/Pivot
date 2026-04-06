@@ -15,7 +15,7 @@ export interface Stock {
   added_at: string;
 }
 
-export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type JobStatus = 'pending' | 'running' | 'partial_completed' | 'completed' | 'failed';
 
 export type JobStep =
   | 'queued'
@@ -23,6 +23,7 @@ export type JobStep =
   | 'earnings'
   | 'forecast'
   | 'document'
+  | 'score_queued'
   | 'scoring'
   | 'done'
   | 'failed';

@@ -150,9 +150,10 @@ pub async fn reset_running_to_pending() -> Result<()> {
 /// On server startup, reset any scoring jobs left in `running` back to `partial_completed`.
 pub async fn reset_scoring_running_to_partial_completed() -> Result<()> {
     sqlx::query!(
-        "UPDATE analysis_jobs SET status = ?, updated_at = datetime('now')
+        "UPDATE analysis_jobs SET status = ?, current_step = ?, updated_at = datetime('now')
          WHERE status = ? AND current_step = ?",
         JobStatus::PartialCompleted,
+        PipelineStep::ScoreQueued,
         JobStatus::Running,
         PipelineStep::Scoring,
     )
@@ -167,7 +168,7 @@ pub async fn set_partial_completed(job_id: i64) -> Result<()> {
     sqlx::query!(
         "UPDATE analysis_jobs SET status = ?, current_step = ?, retry_count = 0, updated_at = datetime('now') WHERE id = ?",
         JobStatus::PartialCompleted,
-        PipelineStep::Scoring,
+        PipelineStep::ScoreQueued,
         job_id,
     )
     .execute(pool())
@@ -196,7 +197,7 @@ pub async fn requeue_for_scoring(job_id: i64) -> Result<()> {
         "UPDATE analysis_jobs SET status = ?, current_step = ?, retry_count = retry_count + 1,
          error = NULL, updated_at = datetime('now') WHERE id = ?",
         JobStatus::PartialCompleted,
-        PipelineStep::Scoring,
+        PipelineStep::ScoreQueued,
         job_id,
     )
     .execute(pool())

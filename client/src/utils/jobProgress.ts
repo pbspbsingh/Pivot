@@ -6,6 +6,7 @@ export const STEP_LABELS: Record<string, string> = {
   earnings: 'Earnings',
   forecast: 'Forecast',
   document: 'Earnings Release',
+  score_queued: 'Score Queued',
   scoring: 'Scoring',
   done: 'Done',
   failed: 'Failed',

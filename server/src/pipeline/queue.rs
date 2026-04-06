@@ -330,7 +330,7 @@ async fn finish_scraping(job_id: i64, symbol: &str, watchlist_id: i64, scoring_e
             symbol,
             watchlist_id,
             JobStatus::PartialCompleted,
-            PipelineStep::Scoring,
+            PipelineStep::ScoreQueued,
             None,
         );
         tracing::info!(
@@ -419,7 +419,7 @@ async fn process_scoring_job(job: AnalysisJob) {
                 &symbol,
                 watchlist_id,
                 JobStatus::PartialCompleted,
-                PipelineStep::Scoring,
+                PipelineStep::ScoreQueued,
                 None,
             );
         } else {

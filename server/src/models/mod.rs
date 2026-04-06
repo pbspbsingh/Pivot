@@ -42,6 +42,7 @@ pub enum PipelineStep {
     Earnings,
     Forecast,
     Document,
+    ScoreQueued,
     Scoring,
     Done,
 }
