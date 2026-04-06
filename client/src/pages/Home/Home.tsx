@@ -341,7 +341,7 @@ export function Home() {
         </Tabs.List>
 
         {watchlists.map((w) => (
-          <Tabs.Panel key={w.id} value={String(w.id)} pt="xs">
+          <Tabs.Panel key={w.id} value={String(w.id)} pt="xs" style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
             {resolvedActiveId === String(w.id) && <WatchlistPanel watchlist={w} />}
           </Tabs.Panel>
         ))}

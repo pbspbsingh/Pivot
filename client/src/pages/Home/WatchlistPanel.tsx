@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Button,
   Group,
-  Stack,
+  ScrollArea,
   Table,
   Text,
   Textarea,
+  Tooltip,
   UnstyledButton,
 } from '@mantine/core';
-import { IconArrowUp, IconArrowDown } from '@tabler/icons-react';
+import { IconArrowUp, IconArrowDown, IconRefresh, IconPlus } from '@tabler/icons-react';
 import { NavLink as RouterNavLink } from 'react-router-dom';
 import { watchlistApi } from '../../api/watchlists';
 import { jobsApi } from '../../api/jobs';
@@ -65,6 +66,7 @@ export function WatchlistPanel({ watchlist }: Props) {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [logJobId, setLogJobId] = useState<number | null>(null);
   const [logSymbol, setLogSymbol] = useState('');
+  const [inputFocused, setInputFocused] = useState(false);
   const prevJobsRef = useRef<typeof jobsBySymbol>({});
 
   const scoreLabel = watchlist.is_default ? 'EP Score' : 'VCP Score';
@@ -182,6 +184,11 @@ export function WatchlistPanel({ watchlist }: Props) {
     }
   }
 
+  async function handleRestartAll() {
+    const active = sortedStocks.filter((s) => !deletedSymbols.has(s.symbol));
+    await Promise.all(active.map((s) => handleAnalyze(s.symbol)));
+  }
+
   async function handleAnalyze(symbol: string) {
     try {
       await jobsApi.analyze(watchlist.id, symbol);
@@ -194,8 +201,11 @@ export function WatchlistPanel({ watchlist }: Props) {
     }
   }
 
+  const inputExpanded = inputFocused || tickerInput.length > 0;
+
   return (
-    <Stack gap="sm">
+    <div style={{ paddingBottom: 90 }}>
+      <ScrollArea>
       <Table highlightOnHover striped>
         <Table.Thead>
           <Table.Tr>
@@ -266,34 +276,54 @@ export function WatchlistPanel({ watchlist }: Props) {
           )}
         </Table.Tbody>
       </Table>
+      </ScrollArea>
 
-      <Stack gap={4} maw={400}>
-        <Text size="xs" fw={500} c="dimmed">
-          Add Tickers
-        </Text>
-        <Textarea
-          placeholder={'One per line or comma-separated\ne.g. AAPL, TSLA\nNVDA'}
-          value={tickerInput}
-          onChange={(e) => setTickerInput(e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleAddStocks();
-          }}
-          autosize
-          minRows={2}
-          maxRows={6}
-        />
-        <Group justify="flex-end">
-          <Button size="xs" onClick={handleAddStocks}>
-            Add
-          </Button>
+      {/* Sticky footer — fixed to bottom of viewport, inset to account for navbar and padding */}
+      <div style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 'calc(220px + var(--mantine-spacing-xs))',
+        right: 'var(--mantine-spacing-xs)',
+        borderTop: '1px solid var(--mantine-color-dark-4)',
+        background: 'var(--mantine-color-dark-8)',
+        padding: '8px',
+        zIndex: 100,
+      }}>
+        <Group gap="xs" align="flex-end">
+          <div style={{
+            flex: 1,
+            maxHeight: inputExpanded ? '180px' : '38px',
+            transition: 'max-height 0.25s ease',
+            overflow: 'hidden',
+          }}>
+            <Textarea
+              placeholder="Add tickers: AAPL, TSLA, NVDA"
+              value={tickerInput}
+              onChange={(e) => setTickerInput(e.currentTarget.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleAddStocks(); }}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              autosize
+              minRows={inputExpanded ? 5 : 1}
+              maxRows={5}
+            />
+          </div>
+          <Tooltip label="Ctrl+Enter to add" position="top">
+            <Button size="sm" leftSection={<IconPlus size={14} />} onClick={handleAddStocks}>Add</Button>
+          </Tooltip>
+          <Tooltip label="Re-run analysis for all tickers" position="top">
+            <Button size="sm" variant="subtle" color="gray" leftSection={<IconRefresh size={14} />} onClick={handleRestartAll}>
+              Restart All
+            </Button>
+          </Tooltip>
         </Group>
-      </Stack>
+      </div>
 
       <JobLogModal
         jobId={logJobId}
         symbol={logSymbol}
         onClose={() => setLogJobId(null)}
       />
-    </Stack>
+    </div>
   );
 }
