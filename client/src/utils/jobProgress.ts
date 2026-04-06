@@ -11,7 +11,7 @@ export const STEP_LABELS: Record<string, string> = {
   failed: 'Failed',
 };
 
-const STEP_ORDER: JobStep[] = ['basic_info', 'earnings', 'forecast', 'document'];
+const STEP_ORDER: JobStep[] = ['basic_info', 'earnings', 'forecast', 'document', 'scoring'];
 
 export function computeProgress(
   currentStep: JobStep,

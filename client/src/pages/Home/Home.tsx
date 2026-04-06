@@ -131,8 +131,16 @@ export function Home() {
   const updateWatchlist = useAppStore((s) => s.updateWatchlist);
   const removeWatchlist = useAppStore((s) => s.removeWatchlist);
 
-  // null means "not yet explicitly chosen" — defaults to first watchlist.
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(
+    () => localStorage.getItem('activeWatchlistId'),
+  );
+
+  function setActiveIdPersisted(id: string | null) {
+    setActiveId(id);
+    if (id !== null) localStorage.setItem('activeWatchlistId', id);
+    else localStorage.removeItem('activeWatchlistId');
+  }
+
   const resolvedActiveId =
     activeId !== null ? activeId : watchlists[0] ? String(watchlists[0].id) : null;
 
@@ -163,7 +171,7 @@ export function Home() {
     try {
       const created = await watchlistApi.create(name, iconInput || DEFAULT_ICON);
       addWatchlist(created);
-      setActiveId(String(created.id));
+      setActiveIdPersisted(String(created.id));
       closeCreate();
     } catch (e) {
       notifyError((e as Error).message);
@@ -192,7 +200,7 @@ export function Home() {
       await watchlistApi.delete(targetWatchlist.id);
       removeWatchlist(targetWatchlist.id);
       const remaining = watchlists.filter((w) => w.id !== targetWatchlist.id);
-      setActiveId(remaining.length > 0 ? String(remaining[0].id) : null);
+      setActiveIdPersisted(remaining.length > 0 ? String(remaining[0].id) : null);
       closeDelete();
     } catch (e) {
       notifyError((e as Error).message);
@@ -257,7 +265,7 @@ export function Home() {
 
       <Tabs
         value={resolvedActiveId}
-        onChange={setActiveId}
+        onChange={setActiveIdPersisted}
         orientation={tabOrientation === 'vertical' ? 'vertical' : 'horizontal'}
         style={{ height: '100%' }}
       >

@@ -23,6 +23,7 @@ export type JobStep =
   | 'earnings'
   | 'forecast'
   | 'document'
+  | 'scoring'
   | 'done'
   | 'failed';
 
