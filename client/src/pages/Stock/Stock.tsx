@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../store';
 import { sortNavStocks } from '../../utils/navSort';
 import { JobLogModal } from '../../components/JobLogModal';
+import { AnimatedTime } from '../../components/AnimatedTime';
 import { computeProgress, STEP_LABELS } from '../../utils/jobProgress';
 import { jobsApi } from '../../api/jobs';
 import type { StockAnalysis } from '../../types';
@@ -233,8 +234,15 @@ export function Stock() {
   const scoreTextareaRef = useRef<HTMLTextAreaElement>(null);
   const promptCodeRef = useRef<HTMLElement>(null);
 
-  const isActive = job?.status === 'pending' || job?.status === 'running';
+  const isActive = job?.status === 'pending' || job?.status === 'running' || job?.status === 'partial_completed';
   const isFailed = job?.status === 'failed';
+
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (job?.status !== 'running') return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [job?.status]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -300,13 +308,23 @@ export function Stock() {
           borderBottom: `1px solid var(--mantine-color-${isFailed ? 'red' : 'blue'}-7)`,
         }}>
           {!isFailed && (() => {
-            const { value } = job.status === 'pending' ? { value: 0 } : computeProgress(job.step, stepAvgMs);
+            const { value } = job.status === 'pending'
+              ? { value: 0 }
+              : computeProgress(job.step, job.phase_started_at, job.accumulated_ms, stepAvgMs, nowMs);
             return <Progress value={value} animated={value === 0} size={2} color="blue.4" radius={0} />;
           })()}
           <Group px="md" py={4} justify="space-between">
             <Text size="xs" c={isFailed ? 'red.3' : 'blue.3'}>
               {isFailed ? `Failed — ${job.error ?? 'unknown error'}` : job.status === 'pending' ? 'Queued' : (STEP_LABELS[job.step] ?? job.step)}
             </Text>
+            {!isFailed && job.status !== 'pending' && (() => {
+              const { elapsed, expected } = computeProgress(job.step, job.phase_started_at, job.accumulated_ms, stepAvgMs, nowMs);
+              return (
+                <Text size="xs" c="blue.3">
+                  <AnimatedTime time={elapsed} />{expected && ` / ${expected}`}
+                </Text>
+              );
+            })()}
             <Tooltip label="View logs" position="left">
               <ActionIcon variant="subtle" color={isFailed ? 'red' : 'blue'} size="xs" onClick={() => setLogOpen(true)}>
                 <IconList size={12} />
