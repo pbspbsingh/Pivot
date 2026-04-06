@@ -185,7 +185,11 @@ export function WatchlistPanel({ watchlist }: Props) {
   }
 
   async function handleRestartAll() {
-    const active = sortedStocks.filter((s) => !deletedSymbols.has(s.symbol));
+    const active = sortedStocks.filter((s) => {
+      if (deletedSymbols.has(s.symbol)) return false;
+      const status = jobsBySymbol[s.symbol]?.status;
+      return status !== 'pending' && status !== 'running' && status !== 'partial_completed';
+    });
     await Promise.all(active.map((s) => handleAnalyze(s.symbol)));
   }
 
