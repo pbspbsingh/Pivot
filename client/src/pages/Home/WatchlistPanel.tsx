@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActionIcon,
   Button,
   Group,
   Stack,
@@ -9,14 +8,14 @@ import {
   Textarea,
   UnstyledButton,
 } from '@mantine/core';
-import { IconRefresh, IconTrash, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
+import { IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 import { NavLink as RouterNavLink } from 'react-router-dom';
 import { watchlistApi } from '../../api/watchlists';
 import { jobsApi } from '../../api/jobs';
 import { useAppStore } from '../../store';
 import type { Stock, Watchlist } from '../../types';
 import { notifyError } from '../../utils/notify';
-import { JobStatusCell } from '../../components/JobStatusCell';
+import { JobStatusCell, JobActionsCell } from '../../components/JobStatusCell';
 import { JobLogModal } from '../../components/JobLogModal';
 import type { JobSummary } from '../../types';
 
@@ -216,7 +215,7 @@ export function WatchlistPanel({ watchlist }: Props) {
               <SortHeader label="Analyzed" sortKey="analyzed_at" sortBy={sortBy} sortDir={sortDir} onToggle={toggleSort} />
             </Table.Th>
             <Table.Th>Status</Table.Th>
-            <Table.Th />
+            <Table.Th>Actions</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -240,29 +239,18 @@ export function WatchlistPanel({ watchlist }: Props) {
                 </Table.Td>
                 <Table.Td>
                   {!isDeleted && (
-                    <JobStatusCell
-                      symbol={stock.symbol}
-                      watchlistId={watchlist.id}
-                      job={jobsBySymbol[stock.symbol]}
-                      stepAvgMs={stepAvgMs}
-                      onAnalyze={() => handleAnalyze(stock.symbol)}
-                      onViewLog={(jobId) => {
-                        setLogJobId(jobId);
-                        setLogSymbol(stock.symbol);
-                      }}
-                    />
+                    <JobStatusCell job={jobsBySymbol[stock.symbol]} stepAvgMs={stepAvgMs} />
                   )}
                 </Table.Td>
                 <Table.Td>
-                  {isDeleted ? (
-                    <ActionIcon variant="subtle" color="green" size="sm" onClick={() => handleRestore(stock.symbol)}>
-                      <IconRefresh size={14} />
-                    </ActionIcon>
-                  ) : (
-                    <ActionIcon variant="subtle" color="red" size="sm" onClick={() => handleDelete(stock.symbol)}>
-                      <IconTrash size={14} />
-                    </ActionIcon>
-                  )}
+                  <JobActionsCell
+                    job={jobsBySymbol[stock.symbol]}
+                    isDeleted={isDeleted}
+                    onAnalyze={() => handleAnalyze(stock.symbol)}
+                    onViewLog={(jobId) => { setLogJobId(jobId); setLogSymbol(stock.symbol); }}
+                    onDelete={() => handleDelete(stock.symbol)}
+                    onRestore={() => handleRestore(stock.symbol)}
+                  />
                 </Table.Td>
               </Table.Tr>
             );
