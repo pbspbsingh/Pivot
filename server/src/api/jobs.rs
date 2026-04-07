@@ -1,4 +1,8 @@
-use axum::{Json, extract::Path, http::StatusCode};
+use axum::{
+    Json,
+    extract::{Path, Query},
+    http::StatusCode,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
@@ -6,11 +10,7 @@ use crate::models::score::CriteriaEntry;
 use crate::{
     api::error::{ApiError, ApiResult},
     db,
-    models::{
-        PipelineStep,
-        jobs::JobSummary,
-        pipeline::{EarningsData, EarningsRelease, ForecastData, StockBasicInfo},
-    },
+    models::{PipelineStep, jobs::JobSummary},
 };
 
 #[derive(Serialize)]
@@ -59,15 +59,9 @@ pub async fn get_job_log(Path(job_id): Path<i64>) -> ApiResult<impl axum::respon
     Ok(Json(log))
 }
 
-#[derive(Serialize)]
-pub struct StockAnalysisResponse {
-    pub exchange: String,
-    pub basic_info: StockBasicInfo,
-    pub earnings: EarningsData,
-    pub forecast: Option<ForecastData>,
-    pub document: Option<EarningsRelease>,
-    pub score: Option<crate::models::score::StockScore>,
-    pub analyzed_at: String,
+#[derive(Deserialize)]
+pub struct AnalysisQuery {
+    section: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -151,21 +145,39 @@ pub async fn get_prompt_for_stock(
 
 pub async fn get_stock_analysis(
     Path((watchlist_id, symbol)): Path<(i64, String)>,
-) -> ApiResult<impl axum::response::IntoResponse> {
+    Query(query): Query<AnalysisQuery>,
+) -> ApiResult<Json<serde_json::Value>> {
+    use serde_json::json;
     let symbol = symbol.to_uppercase();
-    let exchange = db::watchlists::get_exchange(&symbol)
-        .await?
-        .ok_or_else(|| ApiError::NotFound(format!("{symbol} not found")))?;
     let analysis = db::analysis::get(&symbol, watchlist_id)
         .await?
         .ok_or_else(|| ApiError::NotFound("No analysis data yet".into()))?;
-    Ok(Json(StockAnalysisResponse {
-        exchange,
-        basic_info: analysis.basic_info.0,
-        earnings: analysis.earnings.0,
-        forecast: analysis.forecast.0,
-        document: analysis.document.0,
-        score: analysis.score.map(|s| s.0),
-        analyzed_at: analysis.analyzed_at.to_string(),
+
+    Ok(Json(match query.section.as_deref() {
+        Some("basic_info") => {
+            let exchange = db::watchlists::get_exchange(&symbol)
+                .await?
+                .ok_or_else(|| ApiError::NotFound(format!("{symbol} not found")))?;
+            json!({ "exchange": exchange, "basic_info": analysis.basic_info.0 })
+        }
+        Some("earnings") => json!({ "earnings": analysis.earnings.0 }),
+        Some("forecast") => json!({ "forecast": analysis.forecast.0 }),
+        Some("document") => json!({ "document": analysis.document.0 }),
+        Some("score") => json!({ "score": analysis.score.map(|s| s.0) }),
+        Some(s) => return Err(ApiError::BadRequest(format!("Unknown section: {s}"))),
+        None => {
+            let exchange = db::watchlists::get_exchange(&symbol)
+                .await?
+                .ok_or_else(|| ApiError::NotFound(format!("{symbol} not found")))?;
+            json!({
+                "exchange": exchange,
+                "basic_info": analysis.basic_info.0,
+                "earnings": analysis.earnings.0,
+                "forecast": analysis.forecast.0,
+                "document": analysis.document.0,
+                "score": analysis.score.map(|s| s.0),
+                "analyzed_at": analysis.analyzed_at.to_string(),
+            })
+        }
     }))
 }

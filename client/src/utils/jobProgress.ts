@@ -21,7 +21,6 @@ function formatDuration(totalSec: number): string {
 }
 
 export function computeProgress(
-  step: JobStep,
   phaseStartedAt: string | null,
   accumulatedMs: number,
   stepAvgMs: Record<string, number>,

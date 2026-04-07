@@ -13,6 +13,13 @@ import { EpsChart } from '../../components/EpsChart';
 import { TvChart } from '../../components/TvChart';
 import { notifyError, notifySuccess } from '../../utils/notify';
 
+const STEP_TO_SECTION: Partial<Record<string, string>> = {
+  earnings: 'basic_info',
+  forecast: 'earnings',
+  document: 'forecast',
+  score_queued: 'document',
+};
+
 async function copyToClipboard(text: string, label: string) {
   try {
     if (navigator.clipboard?.writeText) {
@@ -127,7 +134,7 @@ function BasicInfoPanel({ analysis, symbol }: { analysis: StockAnalysis; symbol:
                 </Badge>
               </Stack>
               <Stack gap={0} align="flex-end">
-                <Text size="xs" c="dimmed">{forecast.rating_analyst_count ?? forecast.price_target_analyst_count} analysts</Text>
+                <Text size="xs" c="dimmed">{forecast.price_target_analyst_count} analysts</Text>
                 <Text size="xs" c="dimmed">{forecast.rating_total_analysts} ratings</Text>
               </Stack>
             </Group>
@@ -233,6 +240,9 @@ export function Stock() {
   const [promptCopyLoading, setPromptCopyLoading] = useState(false);
   const scoreTextareaRef = useRef<HTMLTextAreaElement>(null);
   const promptCodeRef = useRef<HTMLElement>(null);
+  const analysisRef = useRef<typeof analysis>(null);
+  analysisRef.current = analysis;
+  const prevStep = useRef(job?.step);
 
   const isActive = job?.status === 'pending' || job?.status === 'running' || job?.status === 'partial_completed';
   const isFailed = job?.status === 'failed';
@@ -286,18 +296,47 @@ export function Stock() {
       .catch(() => { setAnalysis(null); setLoadedForKey(key); });
   }, [watchlistId, symbol]);
 
+  useEffect(() => {
+    const prev = prevStep.current;
+    const curr = job?.step;
+    prevStep.current = curr;
+    if (!watchlistId || !symbol || !curr || curr === prev) return;
+    const section = STEP_TO_SECTION[curr];
+    if (!section) return;
+    const wid = Number(watchlistId);
+    if (!analysisRef.current) {
+      jobsApi.getAnalysis(wid, symbol)
+        .then((data) => {
+          setAnalysis(data);
+          setScoreJson(data.score ? JSON.stringify(data.score, null, 2) : '');
+          setLoadedForKey(`${watchlistId}/${symbol}`);
+        })
+        .catch(() => {});
+    } else {
+      jobsApi.getAnalysisSection(wid, symbol, section)
+        .then((data) => setAnalysis((a) => a ? { ...a, ...data } : null))
+        .catch(() => {});
+    }
+  }, [job?.step, watchlistId, symbol]);
+
   const prevJobStatus = useRef(job?.status);
   useEffect(() => {
     if (prevJobStatus.current !== 'completed' && job?.status === 'completed') {
       if (watchlistId && symbol) {
-        jobsApi.getAnalysis(Number(watchlistId), symbol).then((data) => {
-          setAnalysis(data);
-          setScoreJson(data.score ? JSON.stringify(data.score, null, 2) : '');
-        }).catch(() => {});
+        const wid = Number(watchlistId);
+        jobsApi.getAnalysisSection(wid, symbol, 'score')
+          .then((data) => {
+            setAnalysis((a) => a ? { ...a, ...data } : null);
+            if (data.score) {
+              setScoreJson(JSON.stringify(data.score, null, 2));
+              updateStockScore(wid, symbol, data.score.score);
+            }
+          })
+          .catch(() => {});
       }
     }
     prevJobStatus.current = job?.status;
-  }, [job?.status, watchlistId, symbol]);
+  }, [job?.status, watchlistId, symbol, updateStockScore]);
 
   return (
     <Box style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -310,7 +349,7 @@ export function Stock() {
           {!isFailed && (() => {
             const { value } = job.status === 'pending'
               ? { value: 0 }
-              : computeProgress(job.step, job.phase_started_at, job.accumulated_ms, stepAvgMs, nowMs);
+              : computeProgress(job.phase_started_at, job.accumulated_ms, stepAvgMs, nowMs);
             return <Progress value={value} animated={value === 0} size={2} color="blue.4" radius={0} />;
           })()}
           <Group px="md" py={4} justify="space-between">
@@ -318,7 +357,7 @@ export function Stock() {
               {isFailed ? `Failed — ${job.error ?? 'unknown error'}` : job.status === 'pending' ? 'Queued' : (STEP_LABELS[job.step] ?? job.step)}
             </Text>
             {!isFailed && job.status !== 'pending' && (() => {
-              const { elapsed, expected } = computeProgress(job.step, job.phase_started_at, job.accumulated_ms, stepAvgMs, nowMs);
+              const { elapsed, expected } = computeProgress(job.phase_started_at, job.accumulated_ms, stepAvgMs, nowMs);
               return (
                 <Text size="xs" c="blue.3">
                   <AnimatedTime time={elapsed} />{expected && ` / ${expected}`}

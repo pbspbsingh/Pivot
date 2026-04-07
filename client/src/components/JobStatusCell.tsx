@@ -37,7 +37,7 @@ export function JobStatusCell({ job, stepAvgMs }: Pick<Props, 'job' | 'stepAvgMs
   }
 
   if (job.step === 'score_queued') {
-    const { value, elapsed, expected } = computeProgress(job.step, null, job.accumulated_ms, stepAvgMs, nowMs);
+    const { value, elapsed, expected } = computeProgress(null, job.accumulated_ms, stepAvgMs, nowMs);
     return (
       <Stack gap={2} style={{ minWidth: 120 }}>
         <Group justify="space-between" gap={4}>
@@ -50,7 +50,7 @@ export function JobStatusCell({ job, stepAvgMs }: Pick<Props, 'job' | 'stepAvgMs
   }
 
   const stepLabel = STEP_LABELS[job.step] ?? job.step;
-  const { value, elapsed, expected } = computeProgress(job.step, job.phase_started_at, job.accumulated_ms, stepAvgMs, nowMs);
+  const { value, elapsed, expected } = computeProgress(job.phase_started_at, job.accumulated_ms, stepAvgMs, nowMs);
 
   return (
     <Stack gap={2} style={{ minWidth: 120 }}>

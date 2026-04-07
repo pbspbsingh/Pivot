@@ -9,6 +9,8 @@ export const jobsApi = {
   getJobLog: (jobId: number) => api.get<StepAttempt[]>(`/jobs/${jobId}/log`),
   getAnalysis: (watchlistId: number, symbol: string) =>
     api.get<StockAnalysis>(`/watchlists/${watchlistId}/stocks/${symbol}/analysis`),
+  getAnalysisSection: (watchlistId: number, symbol: string, section: string) =>
+    api.get<Partial<StockAnalysis>>(`/watchlists/${watchlistId}/stocks/${symbol}/analysis?section=${section}`),
   saveScore: (watchlistId: number, symbol: string, score: StockScore) =>
     api.put<void>(`/watchlists/${watchlistId}/stocks/${symbol}/score`, score),
   getPrompt: (watchlistId: number, symbol: string) =>
