@@ -3,6 +3,7 @@ import {
   ComposedChart,
   Bar,
   Line,
+  LineChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -13,11 +14,7 @@ import {
 } from 'recharts';
 import type { EarningsEntry } from '../types';
 
-interface Props {
-  title: string;
-  entries: EarningsEntry[];
-  valueKey: 'eps' | 'revenue';
-}
+// ── Shared helpers ────────────────────────────────────────────────────────────
 
 function formatValue(v: number, key: 'eps' | 'revenue') {
   if (key === 'eps') return `$${v.toFixed(2)}`;
@@ -33,7 +30,9 @@ function formatAxis(v: number, key: 'eps' | 'revenue') {
   return `$${v.toFixed(0)}`;
 }
 
-interface TooltipEntry {
+// ── FinancialBarChart (formerly EpsChart) ─────────────────────────────────────
+
+interface BarChartTooltipEntry {
   label: string;
   reported?: number;
   estimate?: number;
@@ -42,9 +41,9 @@ interface TooltipEntry {
   surprise?: number;
 }
 
-function CustomTooltip({ active, payload, label, valueKey }: {
+function BarChartTooltip({ active, payload, label, valueKey }: {
   active?: boolean;
-  payload?: { payload: TooltipEntry }[];
+  payload?: { payload: BarChartTooltipEntry }[];
   label?: string;
   valueKey: 'eps' | 'revenue';
 }) {
@@ -81,7 +80,13 @@ function CustomTooltip({ active, payload, label, valueKey }: {
   );
 }
 
-export function EpsChart({ title, entries, valueKey }: Props) {
+interface FinancialBarChartProps {
+  title: string;
+  entries: EarningsEntry[];
+  valueKey: 'eps' | 'revenue';
+}
+
+export function FinancialBarChart({ title, entries, valueKey }: FinancialBarChartProps) {
   const reportedKey = valueKey === 'eps' ? 'eps_reported' : 'revenue_reported';
   const estimateKey = valueKey === 'eps' ? 'eps_estimate' : 'revenue_estimate';
 
@@ -128,7 +133,7 @@ export function EpsChart({ title, entries, valueKey }: Props) {
             tick={{ fill: '#f59e0b', fontSize: 10 }}
             width={40}
           />
-          <Tooltip content={<CustomTooltip valueKey={valueKey} />} />
+          <Tooltip content={<BarChartTooltip valueKey={valueKey} />} />
           <Legend wrapperStyle={{ fontSize: 11, color: '#9ca3af' }} />
           <Bar yAxisId="left" dataKey="estimate" name="Estimate" fill="#3b82f6" radius={[2, 2, 0, 0]}>
             {data.map((_, i) => (
@@ -154,6 +159,110 @@ export function EpsChart({ title, entries, valueKey }: Props) {
             connectNulls={false}
           />
         </ComposedChart>
+      </ResponsiveContainer>
+    </Box>
+  );
+}
+
+// ── YoyGrowthChart ────────────────────────────────────────────────────────────
+
+function parsePeriod(label: string): { quarter: number; year: number } | null {
+  const m = label.match(/Q(\d)\s+'(\d{2})/);
+  if (!m) return null;
+  return { quarter: parseInt(m[1]), year: 2000 + parseInt(m[2]) };
+}
+
+function YoyTooltip({ active, payload, label }: {
+  active?: boolean;
+  payload?: { payload: { growth: number | undefined } }[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const { growth } = payload[0].payload;
+  if (growth == null) return null;
+  const color = growth >= 0 ? '#22c55e' : '#ef4444';
+  return (
+    <div style={{ background: '#1a1a1a', border: '1px solid #3d3d3d', borderRadius: 4, padding: '6px 10px', fontSize: 11, minWidth: 130 }}>
+      <div style={{ color: '#e5e7eb', marginBottom: 4, fontWeight: 600 }}>{label}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+        <span style={{ color: '#9ca3af' }}>YoY Growth</span>
+        <span style={{ color, fontWeight: 500 }}>{growth >= 0 ? '+' : ''}{growth.toFixed(1)}%</span>
+      </div>
+    </div>
+  );
+}
+
+interface YoyGrowthChartProps {
+  title: string;
+  entries: EarningsEntry[];
+  valueKey: 'eps' | 'revenue';
+}
+
+export function YoyGrowthChart({ title, entries, valueKey }: YoyGrowthChartProps) {
+  const reportedKey = valueKey === 'eps' ? 'eps_reported' : 'revenue_reported';
+
+  // Build lookup: "Q1-2024" → entry
+  const byKey = new Map<string, EarningsEntry>();
+  for (const e of entries) {
+    const p = parsePeriod(e.period_label);
+    if (p) byKey.set(`Q${p.quarter}-${p.year}`, e);
+  }
+
+  const data = entries.map((e) => {
+    const p = parsePeriod(e.period_label);
+    if (!p) return { label: e.period_label, growth: undefined };
+
+    const current = e[reportedKey as keyof EarningsEntry] as number | null;
+    const prior = byKey.get(`Q${p.quarter}-${p.year - 1}`);
+    const priorVal = prior ? (prior[reportedKey as keyof EarningsEntry] as number | null) : null;
+
+    if (current == null || priorVal == null || priorVal === 0) {
+      return { label: e.period_label, growth: undefined };
+    }
+    return {
+      label: e.period_label,
+      growth: ((current - priorVal) / Math.abs(priorVal)) * 100,
+    };
+  });
+
+  // Reference line at 0
+  const hasData = data.some((d) => d.growth != null);
+
+  return (
+    <Box>
+      <Text size="xs" c="dimmed" fw={500} mb={4}>{title}</Text>
+      <ResponsiveContainer width="100%" height={260}>
+        <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#2d2d2d" />
+          <XAxis dataKey="label" tick={{ fill: '#9ca3af', fontSize: 10 }} />
+          <YAxis
+            tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+            tick={{ fill: '#9ca3af', fontSize: 10 }}
+            width={45}
+          />
+          <Tooltip content={<YoyTooltip />} />
+          {hasData && (
+            <Line
+              type="monotone"
+              dataKey="growth"
+              name="YoY Growth"
+              stroke="#a78bfa"
+              strokeWidth={2}
+              connectNulls={false}
+              dot={(props) => {
+                const { cx, cy, payload, key } = props;
+                if (payload.growth == null) return <g key={key} />;
+                const fill = payload.growth >= 0 ? '#22c55e' : '#ef4444';
+                return <circle key={key} cx={cx} cy={cy} r={3} fill={fill} stroke={fill} />;
+              }}
+            />
+          )}
+          {!hasData && (
+            <text x="50%" y="50%" textAnchor="middle" fill="#6b7280" fontSize={12}>
+              Not enough data for YoY comparison
+            </text>
+          )}
+        </LineChart>
       </ResponsiveContainer>
     </Box>
   );

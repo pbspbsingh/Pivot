@@ -9,7 +9,7 @@ import { AnimatedTime } from '../../components/AnimatedTime';
 import { computeProgress, STEP_LABELS } from '../../utils/jobProgress';
 import { jobsApi } from '../../api/jobs';
 import type { StockAnalysis } from '../../types';
-import { EpsChart } from '../../components/EpsChart';
+import { FinancialBarChart, YoyGrowthChart } from '../../components/FinancialChart';
 import { TvChart } from '../../components/TvChart';
 import { notifyError, notifySuccess } from '../../utils/notify';
 
@@ -387,16 +387,22 @@ export function Stock() {
       {!loading && analysis && (
         <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--mantine-color-dark-4)' }}>
           <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
-            <EpsChart title="EPS Annual" entries={analysis.earnings.annual_earnings} valueKey="eps" />
+            <YoyGrowthChart title="EPS Quarterly YoY Growth" entries={analysis.earnings.quarterly_earnings} valueKey="eps" />
           </Box>
           <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
-            <EpsChart title="EPS Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="eps" />
+            <YoyGrowthChart title="Revenue Quarterly YoY Growth" entries={analysis.earnings.quarterly_earnings} valueKey="revenue" />
           </Box>
           <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
-            <EpsChart title="Revenue Annual" entries={analysis.earnings.annual_earnings} valueKey="revenue" />
+            <FinancialBarChart title="EPS Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="eps" />
           </Box>
           <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
-            <EpsChart title="Revenue Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="revenue" />
+            <FinancialBarChart title="Revenue Quarterly" entries={analysis.earnings.quarterly_earnings} valueKey="revenue" />
+          </Box>
+          <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
+            <FinancialBarChart title="EPS Annual" entries={analysis.earnings.annual_earnings} valueKey="eps" />
+          </Box>
+          <Box p="xs" style={{ background: 'var(--mantine-color-dark-7)' }}>
+            <FinancialBarChart title="Revenue Annual" entries={analysis.earnings.annual_earnings} valueKey="revenue" />
           </Box>
         </Box>
       )}
