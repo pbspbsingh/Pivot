@@ -223,6 +223,7 @@ export function Stock() {
   const job = useAppStore((s) => s.jobsByWatchlist[Number(watchlistId)]?.[symbol ?? '']);
   const stepAvgMs = useAppStore((s) => s.stepAvgMs);
   const updateStockScore = useAppStore((s) => s.updateStockScore);
+  const scorePanelLayout = useAppStore((s) => s.scorePanelLayout);
   const stocksByWatchlist = useAppStore((s) => s.stocksByWatchlist);
   const navSort = useAppStore((s) => s.navSort);
   const expandedWatchlistIds = useAppStore((s) => s.expandedWatchlistIds);
@@ -407,7 +408,188 @@ export function Stock() {
         </Box>
       )}
 
-      {!loading && analysis && (
+      {!loading && analysis && scorePanelLayout === 'split' && (
+        <Box mt="xs" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          {/* Score accordion */}
+          <Box style={{ flex: 1, minWidth: 0 }}>
+            <Accordion variant="separated">
+              <Accordion.Item value="score">
+                <Box style={{ position: 'relative' }}>
+                  <Accordion.Control py={4} px="xs">
+                    <Text size="xs" c="dimmed">
+                      {analysis.score ? `Score: ${analysis.score.score.toFixed(1)}` : 'Score: No score available'}
+                    </Text>
+                  </Accordion.Control>
+                  <Tooltip label="Select all" position="left">
+                    <ActionIcon
+                      variant="subtle" color="gray" size="xs"
+                      style={{ position: 'absolute', right: 56, top: '50%', transform: 'translateY(-50%)' }}
+                      onClick={(e) => { e.stopPropagation(); scoreTextareaRef.current?.select(); }}
+                    >
+                      <IconSelectAll size={12} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Copy" position="left">
+                    <ActionIcon
+                      variant="subtle" color="gray" size="xs"
+                      style={{ position: 'absolute', right: 32, top: '50%', transform: 'translateY(-50%)' }}
+                      onClick={(e) => { e.stopPropagation(); copyToClipboard(scoreJson, 'Score'); }}
+                    >
+                      <IconCopy size={12} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Box>
+                <Accordion.Panel>
+                  <Stack gap="xs">
+                    <textarea
+                      ref={scoreTextareaRef}
+                      value={scoreJson}
+                      onChange={(e) => { setScoreJson(e.target.value); setScoreError(null); }}
+                      rows={12}
+                      style={{
+                        width: '100%',
+                        background: 'var(--mantine-color-dark-8)',
+                        color: 'var(--mantine-color-gray-3)',
+                        border: `1px solid var(--mantine-color-${scoreError ? 'red-7' : 'dark-4'})`,
+                        borderRadius: 4,
+                        padding: '8px',
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        resize: 'vertical',
+                      }}
+                      placeholder='{"score": 7.5, "criteria": {}, "last_updated": "2024-01-01T00:00:00"}'
+                      spellCheck={false}
+                    />
+                    {scoreError && <Text size="xs" c="red">{scoreError}</Text>}
+                    <Group justify="flex-end">
+                      <button
+                        disabled={scoreSaving}
+                        style={{
+                          background: 'var(--mantine-color-blue-7)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 4,
+                          padding: '4px 12px',
+                          fontSize: 12,
+                          cursor: scoreSaving ? 'not-allowed' : 'pointer',
+                          opacity: scoreSaving ? 0.6 : 1,
+                        }}
+                        onClick={async () => {
+                          if (!watchlistId || !symbol) return;
+                          let parsed;
+                          try {
+                            parsed = JSON.parse(scoreJson);
+                          } catch {
+                            setScoreError('Invalid JSON');
+                            return;
+                          }
+                          setScoreSaving(true);
+                          try {
+                            await jobsApi.saveScore(Number(watchlistId), symbol, parsed);
+                            const updated = await jobsApi.getAnalysis(Number(watchlistId), symbol);
+                            setAnalysis(updated);
+                            setScoreJson(updated.score ? JSON.stringify(updated.score, null, 2) : '');
+                            if (updated.score) updateStockScore(Number(watchlistId), symbol, updated.score.score);
+                            setScoreError(null);
+                          } catch (e) {
+                            setScoreError(e instanceof Error ? e.message : 'Save failed');
+                          } finally {
+                            setScoreSaving(false);
+                          }
+                        }}
+                      >
+                        {scoreSaving ? 'Saving…' : 'Save'}
+                      </button>
+                    </Group>
+                  </Stack>
+                </Accordion.Panel>
+              </Accordion.Item>
+            </Accordion>
+          </Box>
+
+          {/* Prompt accordion */}
+          <Box style={{ flex: 1, minWidth: 0 }}>
+            <Accordion variant="separated">
+              <Accordion.Item value="prompt">
+                <Box style={{ position: 'relative' }}>
+                  <Accordion.Control
+                    py={4}
+                    px="xs"
+                    onClick={() => {
+                      if (!prompt && !promptLoading && watchlistId && symbol) {
+                        setPromptLoading(true);
+                        jobsApi.getPrompt(Number(watchlistId), symbol)
+                          .then((p) => setPrompt(p))
+                          .catch(() => setPrompt('Failed to load prompt.'))
+                          .finally(() => setPromptLoading(false));
+                      }
+                    }}
+                  >
+                    <Text size="xs" c="dimmed">LLM Prompt</Text>
+                  </Accordion.Control>
+                  <Tooltip label="Select all" position="left">
+                    <ActionIcon
+                      variant="subtle" color="gray" size="xs"
+                      style={{ position: 'absolute', right: 56, top: '50%', transform: 'translateY(-50%)' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const el = promptCodeRef.current;
+                        if (!el) return;
+                        const range = document.createRange();
+                        range.selectNodeContents(el);
+                        const sel = window.getSelection();
+                        sel?.removeAllRanges();
+                        sel?.addRange(range);
+                      }}
+                    >
+                      <IconSelectAll size={12} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Copy prompt" position="left">
+                    <ActionIcon
+                      variant="subtle" color="gray" size="xs"
+                      style={{ position: 'absolute', right: 32, top: '50%', transform: 'translateY(-50%)' }}
+                      disabled={promptCopyLoading}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!watchlistId || !symbol) return;
+                        let text = prompt;
+                        if (!text) {
+                          setPromptCopyLoading(true);
+                          try {
+                            text = await jobsApi.getPrompt(Number(watchlistId), symbol);
+                            setPrompt(text);
+                          } catch (e) {
+                            console.error('Failed to fetch prompt:', e);
+                            notifyError('Failed to fetch prompt');
+                            setPromptCopyLoading(false);
+                            return;
+                          }
+                          setPromptCopyLoading(false);
+                        }
+                        copyToClipboard(text, 'Prompt');
+                      }}
+                    >
+                      {promptCopyLoading ? <Loader size={10} /> : <IconCopy size={12} />}
+                    </ActionIcon>
+                  </Tooltip>
+                </Box>
+                <Accordion.Panel>
+                  {promptLoading ? (
+                    <Text size="xs" c="dimmed">Loading…</Text>
+                  ) : (
+                    <Code ref={promptCodeRef} block fz="xs" style={{ whiteSpace: 'pre-wrap', maxHeight: 500, overflow: 'auto' }}>
+                      {prompt ?? ''}
+                    </Code>
+                  )}
+                </Accordion.Panel>
+              </Accordion.Item>
+            </Accordion>
+          </Box>
+        </Box>
+      )}
+
+      {!loading && analysis && scorePanelLayout === 'stacked' && (
         <Accordion variant="separated" mt="xs">
           <Accordion.Item value="score">
             <Box style={{ position: 'relative' }}>

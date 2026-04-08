@@ -19,6 +19,8 @@ interface AppState {
   // UI prefs
   tabOrientation: TabOrientation;
   setTabOrientation: (orientation: TabOrientation) => void;
+  scorePanelLayout: 'split' | 'stacked';
+  setScorePanelLayout: (layout: 'split' | 'stacked') => void;
 
   // Watchlists — fetched by Layout (always mounted), updated by Home on CRUD
   watchlists: Watchlist[];
@@ -61,6 +63,12 @@ export const useAppStore = create<AppState>((set) => ({
   setTabOrientation: (tabOrientation) => {
     localStorage.setItem('tabOrientation', tabOrientation);
     set({ tabOrientation });
+  },
+
+  scorePanelLayout: (localStorage.getItem('scorePanelLayout') as 'split' | 'stacked') ?? 'stacked',
+  setScorePanelLayout: (scorePanelLayout) => {
+    localStorage.setItem('scorePanelLayout', scorePanelLayout);
+    set({ scorePanelLayout });
   },
 
   watchlists: [],
