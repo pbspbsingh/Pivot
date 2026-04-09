@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { JobSummary, Watchlist, WatchlistJobsResponse } from '../types';
+import type { JobSummary, Watchlist, WatchlistJobsResponse, WatchlistSnapshot } from '../types';
 
 export interface NavStock {
   symbol: string;
@@ -28,6 +28,9 @@ interface AppState {
   addWatchlist: (watchlist: Watchlist) => void;
   updateWatchlist: (watchlist: Watchlist) => void;
   removeWatchlist: (id: number) => void;
+
+  // Replaces all watchlists and their stocks from a server snapshot.
+  applySnapshot: (snapshot: WatchlistSnapshot[]) => void;
 
   // Stocks per watchlist — for nav display, includes score.
   // Only populated for watchlists whose stocks have been fetched.
@@ -73,6 +76,16 @@ export const useAppStore = create<AppState>((set) => ({
 
   watchlists: [],
   setWatchlists: (watchlists) => set({ watchlists }),
+  applySnapshot: (snapshot) => set((s) => {
+    const stocksByWatchlist = { ...s.stocksByWatchlist };
+    for (const ws of snapshot) {
+      stocksByWatchlist[ws.id] = ws.stocks.map((st) => ({ symbol: st.symbol, score: st.score, added_at: st.added_at }));
+    }
+    return {
+      watchlists: snapshot.map(({ id, name, is_default, emoji }) => ({ id, name, is_default, emoji })),
+      stocksByWatchlist,
+    };
+  }),
   addWatchlist: (watchlist) => set((s) => {
     const next = { ...s.expandedWatchlistIds, [watchlist.id]: false };
     localStorage.setItem('watchlistExpanded', JSON.stringify(next));

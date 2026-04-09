@@ -69,5 +69,5 @@ async fn health() -> Json<Value> {
 }
 
 async fn events() -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    Sse::new(crate::sse::subscribe()).keep_alive(KeepAlive::default())
+    Sse::new(crate::sse::subscribe().await).keep_alive(KeepAlive::default())
 }

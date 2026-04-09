@@ -51,32 +51,24 @@ export function Layout() {
     watchlistApi.list().then(setWatchlists).catch(() => {});
   }, [setWatchlists]);
 
-  // When watchlists first load, fetch stocks for any already-expanded entries.
+  // Eagerly fetch stocks for all watchlists on first load.
   const initialFetchDone = useRef(false);
 
   useEffect(() => {
     if (watchlists.length === 0 || initialFetchDone.current) return;
     initialFetchDone.current = true;
     watchlists
-      .filter((w) => expandedWatchlistIds[w.id] && !stocksByWatchlist[w.id])
+      .filter((w) => !stocksByWatchlist[w.id])
       .forEach((w) => {
         watchlistApi
           .listStocks(w.id)
           .then((stocks) => setWatchlistStocks(w.id, stocks.map((s) => ({ symbol: s.symbol, score: s.score, added_at: s.added_at }))))
           .catch(() => {});
       });
-  }, [watchlists, expandedWatchlistIds, stocksByWatchlist, setWatchlistStocks]);
+  }, [watchlists, stocksByWatchlist, setWatchlistStocks]);
 
-  async function handleToggle(id: number) {
+  function handleToggle(id: number) {
     toggleWatchlistExpanded(id);
-    if (!expandedWatchlistIds[id] && !stocksByWatchlist[id]) {
-      try {
-        const stocks = await watchlistApi.listStocks(id);
-        setWatchlistStocks(id, stocks.map((s) => ({ symbol: s.symbol, score: s.score, added_at: s.added_at })));
-      } catch {
-        // nav is non-critical
-      }
-    }
   }
 
   async function handleDeleteTicker() {

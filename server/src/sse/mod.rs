@@ -1,7 +1,7 @@
 use axum::response::sse::Event;
 use chrono::Local;
 
-use crate::models::jobs::JobSummary;
+use crate::models::{WatchlistSnapshot, jobs::JobSummary};
 use std::{
     collections::HashMap,
     convert::Infallible,
@@ -20,6 +20,7 @@ const CHANNEL_BUFFER: usize = 128;
 pub enum SseMessage {
     Heartbeat,
     Job(JobSummary),
+    Snapshot(Vec<WatchlistSnapshot>),
 }
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -35,15 +36,22 @@ pub fn init() {
     });
 }
 
-pub fn subscribe() -> impl Stream<Item = Result<Event, Infallible>> {
+pub async fn subscribe() -> impl Stream<Item = Result<Event, Infallible>> {
     let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER);
     CLIENTS.lock().unwrap().insert(id, tx.clone());
     tracing::debug!("SSE client {id} connected");
 
-    // Send an immediate heartbeat so the client goes live without waiting
-    // for the next 10s broadcast tick.
+    // Heartbeat first so the client goes live immediately.
     let _ = tx.try_send(SseMessage::Heartbeat);
+
+    // Then send a full snapshot so the client is in sync without a page reload.
+    match build_snapshot().await {
+        Ok(snapshot) => {
+            let _ = tx.try_send(SseMessage::Snapshot(snapshot));
+        }
+        Err(e) => tracing::warn!("Failed to build SSE snapshot: {e}"),
+    }
 
     ReceiverStream::new(rx).map(|msg| {
         Ok(match msg {
@@ -53,8 +61,21 @@ pub fn subscribe() -> impl Stream<Item = Result<Event, Infallible>> {
             SseMessage::Job(ev) => Event::default()
                 .event("job")
                 .data(serde_json::to_string(&ev).unwrap_or_default()),
+            SseMessage::Snapshot(s) => Event::default()
+                .event("snapshot")
+                .data(serde_json::to_string(&s).unwrap_or_default()),
         })
     })
+}
+
+async fn build_snapshot() -> anyhow::Result<Vec<WatchlistSnapshot>> {
+    let watchlists = crate::db::watchlists::list().await?;
+    let mut snapshots = Vec::with_capacity(watchlists.len());
+    for watchlist in watchlists {
+        let stocks = crate::db::watchlists::list_stocks(watchlist.id).await?;
+        snapshots.push(WatchlistSnapshot { watchlist, stocks });
+    }
+    Ok(snapshots)
 }
 
 pub fn broadcast(msg: SseMessage) {

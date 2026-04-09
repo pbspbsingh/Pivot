@@ -15,6 +15,10 @@ export interface Stock {
   added_at: string;
 }
 
+export interface WatchlistSnapshot extends Watchlist {
+  stocks: Stock[];
+}
+
 export type JobStatus = 'pending' | 'running' | 'partial_completed' | 'completed' | 'failed';
 
 export type JobStep =

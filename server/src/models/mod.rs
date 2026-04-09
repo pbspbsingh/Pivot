@@ -47,7 +47,7 @@ pub enum PipelineStep {
     Done,
 }
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Clone, Serialize, FromRow)]
 pub struct Watchlist {
     pub id: i64,
     pub name: String,
@@ -60,7 +60,14 @@ pub struct NewStock {
     pub exchange: String,
 }
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Clone, Serialize)]
+pub struct WatchlistSnapshot {
+    #[serde(flatten)]
+    pub watchlist: Watchlist,
+    pub stocks: Vec<Stock>,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
 pub struct Stock {
     pub symbol: String,
     pub exchange: String,

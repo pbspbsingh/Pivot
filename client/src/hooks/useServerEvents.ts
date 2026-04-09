@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../store';
 import { watchlistApi } from '../api/watchlists';
-import type { JobSummary } from '../types';
+import type { JobSummary, WatchlistSnapshot } from '../types';
 
 const MIN_RETRY = 1000;
 const MAX_RETRY = 30000;
@@ -12,6 +12,7 @@ export function useServerEvents() {
   const setServerTime = useAppStore((s) => s.setServerTime);
   const updateJob = useAppStore((s) => s.updateJob);
   const setWatchlistStocks = useAppStore((s) => s.setWatchlistStocks);
+  const applySnapshot = useAppStore((s) => s.applySnapshot);
 
   useEffect(() => {
     let es: EventSource | null = null;
@@ -41,6 +42,15 @@ export function useServerEvents() {
       es.addEventListener('heartbeat', (e: MessageEvent) => {
         resetHeartbeat();
         setServerTime(e.data);
+      });
+
+      es.addEventListener('snapshot', (e: MessageEvent) => {
+        try {
+          const snapshot = JSON.parse(e.data) as WatchlistSnapshot[];
+          applySnapshot(snapshot);
+        } catch {
+          // ignore malformed events
+        }
       });
 
       es.addEventListener('job', (e: MessageEvent) => {
@@ -73,5 +83,5 @@ export function useServerEvents() {
       clearTimeout(heartbeatTimeout);
       es?.close();
     };
-  }, [setConnected, setServerTime, updateJob, setWatchlistStocks]);
+  }, [setConnected, setServerTime, updateJob, setWatchlistStocks, applySnapshot]);
 }
