@@ -203,7 +203,7 @@ export function Layout() {
       <AppShell.Header>
         <Group h="100%" gap={0} wrap="nowrap">
           {/* Left zone — logo only, matches navbar width */}
-          <Group px="md" justify="center" style={{ width: 220, flexShrink: 0 }}>
+          <Group px="md" style={{ width: 220, flexShrink: 0 }}>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <RouterNavLink to="/" style={{ display: 'flex', alignItems: 'center' }}>
               <img
