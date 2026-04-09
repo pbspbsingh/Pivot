@@ -147,7 +147,7 @@ export function FinancialBarChart({ title, entries, valueKey }: FinancialBarChar
             {data.map((d, i) => (
               <Cell
                 key={i}
-                fill={d.reported == null ? 'transparent' : d.beat ? '#22c55e' : '#ef4444'}
+                fill={d.reported == null ? 'transparent' : d.beat === null ? '#6b7280' : d.beat ? '#22c55e' : '#ef4444'}
               />
             ))}
           </Bar>
