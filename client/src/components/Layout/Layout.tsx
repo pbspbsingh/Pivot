@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionIcon,
   AppShell,
@@ -28,6 +28,17 @@ interface TickerMenuTarget {
   symbol: string;
 }
 
+type NavFocus =
+  | { type: 'watchlist'; id: number }
+  | { type: 'ticker'; watchlistId: number; symbol: string };
+
+function sameFocus(a: NavFocus, b: NavFocus): boolean {
+  if (a.type !== b.type) return false;
+  if (a.type === 'watchlist' && b.type === 'watchlist') return a.id === b.id;
+  if (a.type === 'ticker' && b.type === 'ticker') return a.watchlistId === b.watchlistId && a.symbol === b.symbol;
+  return false;
+}
+
 export function Layout() {
   const [opened, { toggle }] = useDisclosure();
   const navigate = useNavigate();
@@ -47,31 +58,51 @@ export function Layout() {
   const [tickerMenu, setTickerMenu] = useState<TickerMenuTarget | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [minScore, setMinScore] = useState(0);
-  const searchRef = useRef<HTMLInputElement>(null);
+  const [navFocus, setNavFocus] = useState<NavFocus | null>(null);
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const navContainerRef = useRef<HTMLDivElement>(null);
+  const initialFetchDone = useRef(false);
 
   const isFiltering = searchQuery.trim() !== '' || minScore > 0;
   const upperQuery = searchQuery.trim().toUpperCase();
 
+  // Centralised filter + sort logic — used by both render and keyboard nav.
+  const visibleWatchlists = useMemo(() => {
+    return watchlists.flatMap((w) => {
+      const sorted = sortNavStocks(stocksByWatchlist[w.id] ?? [], navSort);
+      const stocks = isFiltering
+        ? sorted.filter((s) => {
+            const matchesQuery = upperQuery === '' || s.symbol.includes(upperQuery);
+            const matchesScore = minScore === 0 || (s.score != null && s.score >= minScore);
+            return matchesQuery && matchesScore;
+          })
+        : sorted;
+      if (isFiltering && stocks.length === 0) return [];
+      const isOpen = isFiltering ? true : (expandedWatchlistIds[w.id] ?? false);
+      return [{ watchlist: w, stocks, isOpen }];
+    });
+  }, [watchlists, stocksByWatchlist, navSort, isFiltering, upperQuery, minScore, expandedWatchlistIds]);
+
+  // Flat ordered list of focusable nav items.
+  const flatNav = useMemo<NavFocus[]>(() => {
+    const items: NavFocus[] = [];
+    for (const { watchlist, stocks, isOpen } of visibleWatchlists) {
+      items.push({ type: 'watchlist', id: watchlist.id });
+      if (isOpen) {
+        for (const s of stocks) {
+          items.push({ type: 'ticker', watchlistId: watchlist.id, symbol: s.symbol });
+        }
+      }
+    }
+    return items;
+  }, [visibleWatchlists]);
+
   useServerEvents();
 
-  // Fetch watchlists once on mount — Layout is always rendered.
   useEffect(() => {
     watchlistApi.list().then(setWatchlists).catch(() => {});
   }, [setWatchlists]);
-
-  // Eagerly fetch stocks for all watchlists on first load.
-  const initialFetchDone = useRef(false);
 
   useEffect(() => {
     if (watchlists.length === 0 || initialFetchDone.current) return;
@@ -86,8 +117,69 @@ export function Layout() {
       });
   }, [watchlists, stocksByWatchlist, setWatchlistStocks]);
 
+  // Ctrl+K focuses the search bar.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  // Scroll focused nav item into view.
+  useEffect(() => {
+    if (!navFocus || !navContainerRef.current) return;
+    const key = navFocus.type === 'watchlist'
+      ? `w-${navFocus.id}`
+      : `t-${navFocus.watchlistId}-${navFocus.symbol}`;
+    navContainerRef.current.querySelector(`[data-nav-key="${key}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [navFocus]);
+
   function handleToggle(id: number) {
     toggleWatchlistExpanded(id);
+  }
+
+  function handleNavKeyDown(e: React.KeyboardEvent) {
+    if (flatNav.length === 0) return;
+
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!navFocus) { setNavFocus(flatNav[0]); return; }
+      const idx = flatNav.findIndex((item) => sameFocus(item, navFocus));
+      const next = idx === -1 ? 0 : idx + (e.key === 'ArrowDown' ? 1 : -1);
+      if (next >= 0 && next < flatNav.length) setNavFocus(flatNav[next]);
+      return;
+    }
+
+    if (!navFocus) return;
+
+    if (e.key === 'ArrowRight' && navFocus.type === 'watchlist' && !isFiltering) {
+      e.preventDefault();
+      if (!expandedWatchlistIds[navFocus.id]) handleToggle(navFocus.id);
+      return;
+    }
+
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      if (navFocus.type === 'watchlist' && !isFiltering && expandedWatchlistIds[navFocus.id]) {
+        handleToggle(navFocus.id);
+      } else if (navFocus.type === 'ticker') {
+        setNavFocus({ type: 'watchlist', id: navFocus.watchlistId });
+      }
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (navFocus.type === 'ticker') {
+        navigate(`/stock/${navFocus.watchlistId}/${navFocus.symbol}`);
+      } else if (!isFiltering) {
+        handleToggle(navFocus.id);
+      }
+    }
   }
 
   async function handleDeleteTicker() {
@@ -169,75 +261,88 @@ export function Layout() {
       </AppShell.Header>
 
       <AppShell.Navbar>
-        <ScrollArea style={{ height: '100%' }} p="xs">
-          {watchlists.map((w) => {
-            const stocks = stocksByWatchlist[w.id] ?? [];
-            let visible = sortNavStocks(stocks, navSort);
-            if (isFiltering) {
-              visible = visible.filter((s) => {
-                const matchesQuery = upperQuery === '' || s.symbol.includes(upperQuery);
-                const matchesScore = minScore === 0 || (s.score != null && s.score >= minScore);
-                return matchesQuery && matchesScore;
-              });
-              if (visible.length === 0) return null;
-            }
-            const isOpen = isFiltering ? true : (expandedWatchlistIds[w.id] ?? false);
-            return (
-            <NavLink
-              key={w.id}
-              label={<Text size="sm" fw={600} c="blue.3" style={{ letterSpacing: '0.05em' }}>{w.name}</Text>}
-              leftSection={<span>{w.emoji}</span>}
-              opened={isOpen}
-              onClick={() => { if (!isFiltering) handleToggle(w.id); }}
-              childrenOffset={12}
-            >
-              {visible.length > 0 ? (
-                visible.map((stock) => (
-                  <Menu
-                    key={stock.symbol}
-                    opened={tickerMenu?.watchlistId === w.id && tickerMenu?.symbol === stock.symbol}
-                    onChange={(o) => !o && setTickerMenu(null)}
-                    withinPortal
-                  >
-                    <Menu.Target>
-                      <NavLink
-                        label={
-                          <Group justify="space-between" wrap="nowrap" gap={4}>
-                            <Text span style={{ fontFamily: 'monospace', fontSize: 11 }}>{stock.symbol}</Text>
-                            {stock.score != null && (
-                              <Text span size="xs" c="dimmed">{stock.score.toFixed(1)}</Text>
-                            )}
-                          </Group>
-                        }
-                        component={RouterNavLink}
-                        to={`/stock/${w.id}/${stock.symbol}`}
-                        styles={{ root: { padding: '2px 8px' } }}
-                        onContextMenu={(e: React.MouseEvent) => {
-                          e.preventDefault();
-                          setTickerMenu({ watchlistId: w.id, symbol: stock.symbol });
-                        }}
-                      />
-                    </Menu.Target>
-                    <Menu.Dropdown>
-                      <Menu.Item
-                        leftSection={<IconTrash size={14} />}
-                        color="red"
-                        onClick={handleDeleteTicker}
-                      >
-                        Delete
-                      </Menu.Item>
-                    </Menu.Dropdown>
-                  </Menu>
-                ))
-              ) : (
-                <Text size="xs" c="dimmed" px={8} py={4}>
-                  {stocksByWatchlist[w.id] ? 'No stocks' : 'Loading…'}
-                </Text>
-              )}
-            </NavLink>
-            );
-          })}
-        </ScrollArea>
+        <div
+          ref={navContainerRef}
+          tabIndex={0}
+          onKeyDown={handleNavKeyDown}
+          style={{ height: '100%', outline: 'none' }}
+        >
+          <ScrollArea style={{ height: '100%' }} p="xs">
+            {visibleWatchlists.map(({ watchlist: w, stocks, isOpen }) => {
+              const wFocused = navFocus?.type === 'watchlist' && navFocus.id === w.id;
+              return (
+                <NavLink
+                  key={w.id}
+                  data-nav-key={`w-${w.id}`}
+                  tabIndex={-1}
+                  label={<Text size="sm" fw={600} c="blue.3" style={{ letterSpacing: '0.05em' }}>{w.name}</Text>}
+                  leftSection={<span>{w.emoji}</span>}
+                  opened={isOpen}
+                  onClick={() => {
+                    setNavFocus({ type: 'watchlist', id: w.id });
+                    navContainerRef.current?.focus();
+                    if (!isFiltering) handleToggle(w.id);
+                  }}
+                  childrenOffset={12}
+                  styles={{ root: { backgroundColor: wFocused ? 'var(--mantine-color-dark-4)' : undefined, borderRadius: 4 } }}
+                >
+                  {stocks.length > 0 ? (
+                    stocks.map((stock) => {
+                      const tFocused = navFocus?.type === 'ticker' && navFocus.watchlistId === w.id && navFocus.symbol === stock.symbol;
+                      return (
+                        <Menu
+                          key={stock.symbol}
+                          opened={tickerMenu?.watchlistId === w.id && tickerMenu?.symbol === stock.symbol}
+                          onChange={(o) => !o && setTickerMenu(null)}
+                          withinPortal
+                        >
+                          <Menu.Target>
+                            <NavLink
+                              data-nav-key={`t-${w.id}-${stock.symbol}`}
+                              tabIndex={-1}
+                              label={
+                                <Group justify="space-between" wrap="nowrap" gap={4}>
+                                  <Text span style={{ fontFamily: 'monospace', fontSize: 11 }}>{stock.symbol}</Text>
+                                  {stock.score != null && (
+                                    <Text span size="xs" c="dimmed">{stock.score.toFixed(1)}</Text>
+                                  )}
+                                </Group>
+                              }
+                              component={RouterNavLink}
+                              to={`/stock/${w.id}/${stock.symbol}`}
+                              onClick={() => {
+                                setNavFocus({ type: 'ticker', watchlistId: w.id, symbol: stock.symbol });
+                                navContainerRef.current?.focus();
+                              }}
+                              styles={{ root: { padding: '2px 8px', backgroundColor: tFocused ? 'var(--mantine-color-dark-4)' : undefined, borderRadius: 4 } }}
+                              onContextMenu={(e: React.MouseEvent) => {
+                                e.preventDefault();
+                                setTickerMenu({ watchlistId: w.id, symbol: stock.symbol });
+                              }}
+                            />
+                          </Menu.Target>
+                          <Menu.Dropdown>
+                            <Menu.Item
+                              leftSection={<IconTrash size={14} />}
+                              color="red"
+                              onClick={handleDeleteTicker}
+                            >
+                              Delete
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      );
+                    })
+                  ) : (
+                    <Text size="xs" c="dimmed" px={8} py={4}>
+                      {stocksByWatchlist[w.id] ? 'No stocks' : 'Loading…'}
+                    </Text>
+                  )}
+                </NavLink>
+              );
+            })}
+          </ScrollArea>
+        </div>
       </AppShell.Navbar>
 
       <AppShell.Main>
