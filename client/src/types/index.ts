@@ -60,9 +60,11 @@ export interface EarningsEntry {
   eps_reported: number | null;
   eps_estimate: number | null;
   eps_surprise_pct: number | null;
+  eps_yoy_growth: number | null;
   revenue_reported: number | null;
   revenue_estimate: number | null;
   revenue_surprise_pct: number | null;
+  revenue_yoy_growth: number | null;
 }
 
 export interface EarningsData {

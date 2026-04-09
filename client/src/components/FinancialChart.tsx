@@ -90,6 +90,8 @@ export function FinancialBarChart({ title, entries, valueKey }: FinancialBarChar
   const reportedKey = valueKey === 'eps' ? 'eps_reported' : 'revenue_reported';
   const estimateKey = valueKey === 'eps' ? 'eps_estimate' : 'revenue_estimate';
 
+  const surpriseKey = valueKey === 'eps' ? 'eps_surprise_pct' : 'revenue_surprise_pct';
+
   const data = entries.map((e, i) => {
     const reported = e[reportedKey as keyof EarningsEntry] as number | null;
     const estimate = e[estimateKey as keyof EarningsEntry] as number | null;
@@ -98,10 +100,11 @@ export function FinancialBarChart({ title, entries, valueKey }: FinancialBarChar
       reported != null && prevReported != null && prevReported !== 0
         ? ((reported - prevReported) / Math.abs(prevReported)) * 100
         : undefined;
-    const surprise =
-      reported != null && estimate != null && estimate !== 0
+    const scrapedSurprise = e[surpriseKey as keyof EarningsEntry] as number | null;
+    const surprise = scrapedSurprise ??
+      (reported != null && estimate != null && estimate !== 0
         ? ((reported - estimate) / Math.abs(estimate)) * 100
-        : undefined;
+        : undefined);
 
     return {
       label: e.period_label,
@@ -199,9 +202,9 @@ interface YoyGrowthChartProps {
 }
 
 export function YoyGrowthChart({ title, entries, valueKey }: YoyGrowthChartProps) {
+  const yoyKey = valueKey === 'eps' ? 'eps_yoy_growth' : 'revenue_yoy_growth';
   const reportedKey = valueKey === 'eps' ? 'eps_reported' : 'revenue_reported';
 
-  // Build lookup: "Q1-2024" → entry
   const byKey = new Map<string, EarningsEntry>();
   for (const e of entries) {
     const p = parsePeriod(e.period_label);
@@ -209,6 +212,9 @@ export function YoyGrowthChart({ title, entries, valueKey }: YoyGrowthChartProps
   }
 
   const data = entries.map((e) => {
+    const scraped = e[yoyKey as keyof EarningsEntry] as number | null;
+    if (scraped != null) return { label: e.period_label, growth: scraped };
+
     const p = parsePeriod(e.period_label);
     if (!p) return { label: e.period_label, growth: undefined };
 

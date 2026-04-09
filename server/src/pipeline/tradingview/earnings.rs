@@ -29,12 +29,14 @@ impl TradingView {
         let has_is_annual = is_tabs.iter().any(|id| id == "FY");
 
         let quarterly_is = if has_is_quarterly {
-            self.extract_income_statement(Periodicity::Quarterly, symbol).await?
+            self.extract_income_statement(Periodicity::Quarterly, symbol)
+                .await?
         } else {
             HashMap::new()
         };
         let annual_is = if has_is_annual {
-            self.extract_income_statement(Periodicity::Annual, symbol).await?
+            self.extract_income_statement(Periodicity::Annual, symbol)
+                .await?
         } else {
             HashMap::new()
         };
@@ -54,16 +56,19 @@ impl TradingView {
         );
 
         let quarterly_earn = if has_quarterly {
-            self.extract_earnings(Periodicity::Quarterly, symbol).await
+            self.extract_earnings(Periodicity::Quarterly, symbol)
+                .await
                 .context("Failed to extract quarterly earnings")?
         } else {
             vec![]
         };
         let annual_earn = if has_annual {
-            self.extract_earnings(Periodicity::Annual, symbol).await
+            self.extract_earnings(Periodicity::Annual, symbol)
+                .await
                 .context("Failed to extract annual earnings")?
         } else if has_half_yearly {
-            self.extract_earnings(Periodicity::HalfYearly, symbol).await
+            self.extract_earnings(Periodicity::HalfYearly, symbol)
+                .await
                 .context("Failed to extract half-yearly earnings")?
         } else {
             vec![]
@@ -71,7 +76,11 @@ impl TradingView {
 
         // 3. Merge
         Ok(EarningsData {
-            quarterly_earnings: merge_earnings(quarterly_is, quarterly_earn, Periodicity::Quarterly),
+            quarterly_earnings: merge_earnings(
+                quarterly_is,
+                quarterly_earn,
+                Periodicity::Quarterly,
+            ),
             annual_earnings: merge_earnings(annual_is, annual_earn, Periodicity::Annual),
         })
     }
@@ -104,14 +113,18 @@ impl TradingView {
                 r#"document.querySelectorAll('[id="{tab_id}"]').forEach(b => b.click())"#
             ))
             .await
-            .with_context(|| format!("Failed to click {tab_id} tab on income statement for {symbol}"))?;
+            .with_context(|| {
+                format!("Failed to click {tab_id} tab on income statement for {symbol}")
+            })?;
         self.page.sleep().await;
 
-        let data = self.evaluate_income_statement_js().await
-            .with_context(|| format!("Failed to evaluate income statement JS ({tab_id}) for {symbol}"))?;
+        let data = self.evaluate_income_statement_js().await.with_context(|| {
+            format!("Failed to evaluate income statement JS ({tab_id}) for {symbol}")
+        })?;
 
-        parse_income_statement_json(&data)
-            .with_context(|| format!("Failed to parse income statement data ({tab_id}) for {symbol}"))
+        parse_income_statement_json(&data).with_context(|| {
+            format!("Failed to parse income statement data ({tab_id}) for {symbol}")
+        })
     }
 
     async fn evaluate_income_statement_js(&self) -> Result<serde_json::Value> {
@@ -175,7 +188,9 @@ impl TradingView {
             .with_context(|| format!("Failed to click {tab_id} tab for {symbol}"))?;
         self.page.sleep().await;
 
-        let data = self.evaluate_earnings_js().await
+        let data = self
+            .evaluate_earnings_js()
+            .await
             .with_context(|| format!("Failed to evaluate earnings JS ({tab_id}) for {symbol}"))?;
 
         parse_earnings_json(&data, periodicity)
@@ -256,7 +271,9 @@ fn parse_income_statement_json(data: &serde_json::Value) -> Result<HashMap<Strin
         .as_array()
         .context("Income statement JSON missing labels array")?;
     let eps_cells = data["eps"].as_array().context("Missing eps array")?;
-    let rev_cells = data["revenue"].as_array().context("Missing revenue array")?;
+    let rev_cells = data["revenue"]
+        .as_array()
+        .context("Missing revenue array")?;
 
     let n = labels.len();
     let mut map = HashMap::new();
@@ -267,28 +284,50 @@ fn parse_income_statement_json(data: &serde_json::Value) -> Result<HashMap<Strin
             _ => continue,
         };
 
-        let locked_eps = eps_cells.get(i).and_then(|c| c["locked"].as_bool()).unwrap_or(true);
-        let locked_rev = rev_cells.get(i).and_then(|c| c["locked"].as_bool()).unwrap_or(true);
+        let locked_eps = eps_cells
+            .get(i)
+            .and_then(|c| c["locked"].as_bool())
+            .unwrap_or(true);
+        let locked_rev = rev_cells
+            .get(i)
+            .and_then(|c| c["locked"].as_bool())
+            .unwrap_or(true);
 
         // Skip if both are locked — no useful data for this period
         if locked_eps && locked_rev {
             continue;
         }
 
-        let eps_reported = if locked_eps { None } else {
+        let eps_reported = if locked_eps {
+            None
+        } else {
             parse_tv_value(eps_cells[i]["value"].as_str().unwrap_or("")).map(round2)
         };
-        let eps_yoy_growth = if locked_eps { None } else {
+        let eps_yoy_growth = if locked_eps {
+            None
+        } else {
             parse_tv_pct(eps_cells[i]["change"].as_str().unwrap_or("")).map(round2)
         };
-        let revenue_reported = if locked_rev { None } else {
+        let revenue_reported = if locked_rev {
+            None
+        } else {
             parse_tv_value(rev_cells[i]["value"].as_str().unwrap_or("")).map(round2)
         };
-        let revenue_yoy_growth = if locked_rev { None } else {
+        let revenue_yoy_growth = if locked_rev {
+            None
+        } else {
             parse_tv_pct(rev_cells[i]["change"].as_str().unwrap_or("")).map(round2)
         };
 
-        map.insert(label, IncomeEntry { eps_reported, eps_yoy_growth, revenue_reported, revenue_yoy_growth });
+        map.insert(
+            label,
+            IncomeEntry {
+                eps_reported,
+                eps_yoy_growth,
+                revenue_reported,
+                revenue_yoy_growth,
+            },
+        );
     }
 
     Ok(map)
@@ -392,7 +431,7 @@ fn merge_earnings(
             // Skip if truly empty
             if eps_reported.is_none()
                 && revenue_reported.is_none()
-                && earn_entry.as_ref().map_or(true, |e| {
+                && earn_entry.as_ref().is_none_or(|e| {
                     e.eps_estimate.is_none() && e.revenue_estimate.is_none()
                 })
             {
