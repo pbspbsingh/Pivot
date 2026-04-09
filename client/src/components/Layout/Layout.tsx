@@ -7,12 +7,14 @@ import {
   Menu,
   NavLink,
   ScrollArea,
+  Slider,
   Text,
+  TextInput,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet } from 'react-router-dom';
 import { NavLink as RouterNavLink, useNavigate } from 'react-router-dom';
-import { IconSettings, IconTrash, IconSortAZ, IconSortDescendingNumbers, IconCalendarDown } from '@tabler/icons-react';
+import { IconSettings, IconTrash, IconSortAZ, IconSortDescendingNumbers, IconCalendarDown, IconSearch } from '@tabler/icons-react';
 import { watchlistApi } from '../../api/watchlists';
 import { useAppStore } from '../../store';
 import { useServerEvents } from '../../hooks/useServerEvents';
@@ -43,6 +45,23 @@ export function Layout() {
   const setNavSort = useAppStore((s) => s.setNavSort);
 
   const [tickerMenu, setTickerMenu] = useState<TickerMenuTarget | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [minScore, setMinScore] = useState(0);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const isFiltering = searchQuery.trim() !== '' || minScore > 0;
+  const upperQuery = searchQuery.trim().toUpperCase();
 
   useServerEvents();
 
@@ -85,13 +104,14 @@ export function Layout() {
 
   return (
     <AppShell
-      header={{ height: 44 }}
+      header={{ height: 56 }}
       navbar={{ width: 220, breakpoint: 'sm', collapsed: { mobile: !opened } }}
       padding="xs"
     >
       <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Group>
+        <Group h="100%" gap={0} wrap="nowrap">
+          {/* Left zone — logo only, matches navbar width */}
+          <Group px="md" justify="center" style={{ width: 220, flexShrink: 0 }}>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <RouterNavLink to="/" style={{ display: 'flex', alignItems: 'center' }}>
               <img
@@ -105,8 +125,31 @@ export function Layout() {
               />
             </RouterNavLink>
           </Group>
-          <Group gap="xs">
-            {serverTime && <AnimatedTime time={serverTime} />}
+          {/* Right zone — right-aligned controls */}
+          <Group px="md" gap="md" wrap="nowrap" justify="flex-end" style={{ flex: 1 }}>
+            <Group gap="xs" wrap="nowrap" align="center" style={{ flexShrink: 0 }}>
+              <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>Min score</Text>
+              <Slider
+                value={minScore}
+                onChange={setMinScore}
+                min={0}
+                max={10}
+                step={0.5}
+                size="xs"
+                label={(v) => v > 0 ? String(v) : null}
+                style={{ width: 120 }}
+              />
+              {minScore > 0 && <Text size="xs" c="blue.4" style={{ width: 24 }}>{minScore}</Text>}
+            </Group>
+            <TextInput
+              ref={searchRef}
+              placeholder="Search tickers…"
+              size="xs"
+              leftSection={<IconSearch size={14} />}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.currentTarget.value)}
+              style={{ width: 200, flexShrink: 0 }}
+            />
             <ActionIcon
               variant="subtle"
               color="gray"
@@ -120,6 +163,7 @@ export function Layout() {
             <ActionIcon variant="subtle" color="gray" onClick={() => navigate('/settings')}>
               <IconSettings size={18} />
             </ActionIcon>
+            {serverTime && <AnimatedTime time={serverTime} />}
           </Group>
         </Group>
       </AppShell.Header>
@@ -128,18 +172,27 @@ export function Layout() {
         <ScrollArea style={{ height: '100%' }} p="xs">
           {watchlists.map((w) => {
             const stocks = stocksByWatchlist[w.id] ?? [];
-            const sorted = sortNavStocks(stocks, navSort);
+            let visible = sortNavStocks(stocks, navSort);
+            if (isFiltering) {
+              visible = visible.filter((s) => {
+                const matchesQuery = upperQuery === '' || s.symbol.includes(upperQuery);
+                const matchesScore = minScore === 0 || (s.score != null && s.score >= minScore);
+                return matchesQuery && matchesScore;
+              });
+              if (visible.length === 0) return null;
+            }
+            const isOpen = isFiltering ? true : (expandedWatchlistIds[w.id] ?? false);
             return (
             <NavLink
               key={w.id}
               label={<Text size="sm" fw={600} c="blue.3" style={{ letterSpacing: '0.05em' }}>{w.name}</Text>}
               leftSection={<span>{w.emoji}</span>}
-              opened={expandedWatchlistIds[w.id] ?? false}
-              onClick={() => handleToggle(w.id)}
+              opened={isOpen}
+              onClick={() => { if (!isFiltering) handleToggle(w.id); }}
               childrenOffset={12}
             >
-              {sorted.length > 0 ? (
-                sorted.map((stock) => (
+              {visible.length > 0 ? (
+                visible.map((stock) => (
                   <Menu
                     key={stock.symbol}
                     opened={tickerMenu?.watchlistId === w.id && tickerMenu?.symbol === stock.symbol}
