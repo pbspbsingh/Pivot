@@ -284,7 +284,7 @@ export function Layout() {
                     if (!isFiltering) handleToggle(w.id);
                   }}
                   childrenOffset={12}
-                  styles={{ root: { backgroundColor: wFocused ? 'var(--mantine-color-dark-4)' : undefined, borderRadius: 4 } }}
+                  styles={{ root: { padding: '2px 8px', backgroundColor: wFocused ? 'var(--mantine-color-dark-4)' : undefined, borderRadius: 4 } }}
                 >
                   {stocks.length > 0 ? (
                     stocks.map((stock) => {
