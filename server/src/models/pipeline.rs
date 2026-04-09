@@ -22,9 +22,11 @@ pub struct EarningsEntry {
     pub eps_reported: Option<f64>,
     pub eps_estimate: Option<f64>,
     pub eps_surprise_pct: Option<f64>,
+    pub eps_yoy_growth: Option<f64>,
     pub revenue_reported: Option<f64>,
     pub revenue_estimate: Option<f64>,
     pub revenue_surprise_pct: Option<f64>,
+    pub revenue_yoy_growth: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
