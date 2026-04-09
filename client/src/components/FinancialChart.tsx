@@ -137,7 +137,20 @@ export function FinancialBarChart({ title, entries, valueKey }: FinancialBarChar
             width={40}
           />
           <Tooltip content={<BarChartTooltip valueKey={valueKey} />} />
-          <Legend wrapperStyle={{ fontSize: 11, color: '#9ca3af' }} />
+          <Legend wrapperStyle={{ fontSize: 11, color: '#9ca3af' }} formatter={() => <span style={{ color: '#9ca3af' }} />} content={() => (
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', fontSize: 11, color: '#9ca3af', paddingTop: 4 }}>
+              {[
+                { color: '#3b82f6', label: 'Estimate' },
+                { color: '#6b7280', label: 'Reported' },
+                { color: '#f59e0b', label: 'Growth' },
+              ].map(({ color, label }) => (
+                <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+          )} />
           <Bar yAxisId="left" dataKey="estimate" name="Estimate" fill="#3b82f6" radius={[2, 2, 0, 0]}>
             {data.map((_, i) => (
               <Cell key={i} fill="#3b82f6" fillOpacity={0.6} />
