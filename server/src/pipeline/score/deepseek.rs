@@ -25,8 +25,6 @@ struct StreamChunk {
 #[derive(Deserialize)]
 struct Choice {
     delta: Delta,
-    #[allow(dead_code)]
-    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
