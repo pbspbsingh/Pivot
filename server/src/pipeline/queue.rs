@@ -367,6 +367,9 @@ async fn finish_scraping(job_id: i64, symbol: &str, watchlist_id: i64, scoring_e
             "Scraping complete, queued for scoring"
         );
     } else {
+        if let Err(e) = db::analysis::clear_score(symbol, watchlist_id).await {
+            tracing::warn!(job_id, symbol, "Failed to clear stale score: {e}");
+        }
         db::jobs::complete(job_id).await.ok();
         broadcast_job(
             job_id,

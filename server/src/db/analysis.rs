@@ -56,6 +56,17 @@ pub async fn upsert(
     Ok(())
 }
 
+pub async fn clear_score(symbol: &str, watchlist_id: i64) -> Result<()> {
+    sqlx::query!(
+        "UPDATE stock_analysis SET score = NULL WHERE symbol = ? AND watchlist_id = ?",
+        symbol,
+        watchlist_id,
+    )
+    .execute(pool())
+    .await?;
+    Ok(())
+}
+
 pub async fn save_score(symbol: &str, watchlist_id: i64, score: &StockScore) -> Result<()> {
     let sc = Json(score);
     sqlx::query!(
