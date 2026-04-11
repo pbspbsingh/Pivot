@@ -113,6 +113,38 @@ pub fn build_base_input(analysis: &StockAnalysis) -> Value {
     })
 }
 
+/// Injects the analysis input JSON into the prompt template's ```json block.
+pub fn build_prompt(
+    prompt: &str,
+    analysis: &StockAnalysis,
+    is_default: bool,
+) -> anyhow::Result<String> {
+    let mut input = build_base_input(analysis);
+    if !is_default {
+        input["forecast"] = serde_json::to_value(&analysis.forecast.0)?;
+    }
+    let input_json = serde_json::to_string_pretty(&input)?;
+
+    let full_prompt = if let Some(open) = prompt.find("```json\n") {
+        let after_open = open + "```json\n".len();
+        if let Some(rel_close) = prompt[after_open..].find("\n```") {
+            let close = after_open + rel_close;
+            let after_close = close + "\n```".len();
+            format!(
+                "{}```json\n{}\n```{}",
+                &prompt[..open],
+                input_json,
+                &prompt[after_close..]
+            )
+        } else {
+            format!("{}\n\n```json\n{}\n```", prompt, input_json)
+        }
+    } else {
+        format!("{}\n\n```json\n{}\n```", prompt, input_json)
+    };
+    Ok(full_prompt)
+}
+
 /// Strips `<think>...</think>` blocks and markdown code fences, then parses JSON.
 fn strip_think_and_parse(raw: &str) -> Result<Value> {
     let text = match raw.find("</think>") {

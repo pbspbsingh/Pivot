@@ -1,5 +1,13 @@
 import type { JobStep } from '../types';
 
+// Maps the step that just completed to the analysis section that is now ready to fetch.
+export const STEP_TO_SECTION: Partial<Record<string, string>> = {
+  earnings: 'basic_info',
+  forecast: 'earnings',
+  document: 'forecast',
+  score_queued: 'document',
+};
+
 export const STEP_LABELS: Record<string, string> = {
   queued: 'Queued',
   basic_info: 'Basic Info',

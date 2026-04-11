@@ -24,8 +24,6 @@ const PROMPT_KEYS = ['vcp', 'ep'];
 export function Settings() {
   const tabOrientation = useAppStore((s) => s.tabOrientation);
   const setTabOrientation = useAppStore((s) => s.setTabOrientation);
-  const scorePanelLayout = useAppStore((s) => s.scorePanelLayout);
-  const setScorePanelLayout = useAppStore((s) => s.setScorePanelLayout);
 
   const [prompts, setPrompts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -62,18 +60,6 @@ export function Settings() {
           data={[
             { label: 'Vertical', value: 'vertical' },
             { label: 'Top', value: 'horizontal' },
-          ]}
-        />
-      </Group>
-
-      <Group justify="space-between" maw={480}>
-        <Text fw={500}>Score & Prompt Layout</Text>
-        <SegmentedControl
-          value={scorePanelLayout}
-          onChange={(v) => setScorePanelLayout(v as 'split' | 'stacked')}
-          data={[
-            { label: 'Split', value: 'split' },
-            { label: 'Stacked', value: 'stacked' },
           ]}
         />
       </Group>

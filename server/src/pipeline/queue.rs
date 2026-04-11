@@ -7,12 +7,10 @@ use serde::{Serialize, de::DeserializeOwned};
 use tokio::sync::OnceCell;
 use tokio::time::sleep;
 
-use chrono::NaiveDateTime;
-
 use crate::{
     config::CONFIG,
     db,
-    models::jobs::{AnalysisJob, JobSummary},
+    models::jobs::AnalysisJob,
     models::pipeline::{EarningsData, EarningsRelease, ForecastData, StockBasicInfo},
     models::{JobStatus, PipelineStep},
     pipeline::{score::Scorer, tradingview::TradingView},
@@ -126,29 +124,6 @@ pub fn start() {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn broadcast_job(
-    job_id: i64,
-    symbol: &str,
-    watchlist_id: i64,
-    status: JobStatus,
-    step: PipelineStep,
-    error: Option<String>,
-    phase_started_at: Option<NaiveDateTime>,
-    accumulated_ms: i64,
-) {
-    sse::broadcast(sse::SseMessage::Job(JobSummary {
-        job_id,
-        symbol: symbol.to_string(),
-        watchlist_id,
-        status,
-        step,
-        error,
-        phase_started_at,
-        accumulated_ms,
-    }));
-}
-
 /// Returns the index of the first step without cached data, or None if all steps are cached.
 async fn find_resume_step(job_id: i64) -> Result<Option<usize>, String> {
     for (i, &step) in SCRAPING_STEPS.iter().enumerate() {
@@ -247,7 +222,7 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
             .await
             .map(|(t, ms)| (Some(t), ms))
             .unwrap_or((None, 0));
-        broadcast_job(
+        sse::broadcast_job(
             job_id,
             &symbol,
             watchlist_id,
@@ -263,7 +238,7 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
         for (i, &step) in SCRAPING_STEPS[start..].iter().enumerate() {
             if i > 0 {
                 db::jobs::set_step(job_id, step).await.ok();
-                broadcast_job(
+                sse::broadcast_job(
                     job_id,
                     &symbol,
                     watchlist_id,
@@ -316,7 +291,7 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
         if job.retry_count < MAX_JOB_RETRIES {
             tracing::warn!(job_id, symbol, attempt, "Step failed, requeueing for retry");
             db::jobs::enqueue(&symbol, watchlist_id).await.ok();
-            broadcast_job(
+            sse::broadcast_job(
                 job_id,
                 &symbol,
                 watchlist_id,
@@ -332,7 +307,7 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
                 symbol,
                 "Job failed permanently after {attempt} attempts: {e}"
             );
-            broadcast_job(
+            sse::broadcast_job(
                 job_id,
                 &symbol,
                 watchlist_id,
@@ -350,7 +325,7 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
 async fn finish_scraping(job_id: i64, symbol: &str, watchlist_id: i64, scoring_enabled: bool) {
     if scoring_enabled {
         db::jobs::set_partial_completed(job_id).await.ok();
-        broadcast_job(
+        sse::broadcast_job(
             job_id,
             symbol,
             watchlist_id,
@@ -371,7 +346,7 @@ async fn finish_scraping(job_id: i64, symbol: &str, watchlist_id: i64, scoring_e
             tracing::warn!(job_id, symbol, "Failed to clear stale score: {e}");
         }
         db::jobs::complete(job_id).await.ok();
-        broadcast_job(
+        sse::broadcast_job(
             job_id,
             symbol,
             watchlist_id,
@@ -409,7 +384,7 @@ async fn process_scoring_job(job: AnalysisJob) {
                     .await
                     .map(|(t, ms)| (Some(t), ms))
                     .unwrap_or((None, 0));
-            broadcast_job(
+            sse::broadcast_job(
                 job_id,
                 &symbol,
                 watchlist_id,
@@ -432,7 +407,7 @@ async fn process_scoring_job(job: AnalysisJob) {
             tracing::warn!(job_id, symbol, "Failed to save score: {e}");
         }
         db::jobs::complete(job_id).await.ok();
-        broadcast_job(
+        sse::broadcast_job(
             job_id,
             &symbol,
             watchlist_id,
@@ -452,7 +427,7 @@ async fn process_scoring_job(job: AnalysisJob) {
         if job.retry_count < MAX_JOB_RETRIES {
             tracing::warn!(job_id, symbol, attempt, "Scoring failed, requeueing");
             db::jobs::requeue_for_scoring(job_id).await.ok();
-            broadcast_job(
+            sse::broadcast_job(
                 job_id,
                 &symbol,
                 watchlist_id,
@@ -468,7 +443,7 @@ async fn process_scoring_job(job: AnalysisJob) {
                 symbol,
                 "Scoring failed permanently after {attempt} attempts: {e}"
             );
-            broadcast_job(
+            sse::broadcast_job(
                 job_id,
                 &symbol,
                 watchlist_id,

@@ -9,168 +9,31 @@ import {
 } from '@dnd-kit/core';
 import {
   SortableContext,
-  useSortable,
   horizontalListSortingStrategy,
   verticalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import {
   ActionIcon,
   Button,
-  Divider,
   Group,
-  Input,
   Menu,
   Modal,
-  Popover,
-  SimpleGrid,
   Stack,
   Tabs,
   Text,
   TextInput,
-  UnstyledButton,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconPencil, IconPlus, IconTrash, IconGripVertical } from '@tabler/icons-react';
+import { IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
 import { watchlistApi } from '../../api/watchlists';
 import { useAppStore } from '../../store';
 import type { Watchlist } from '../../types';
 import { notifyError } from '../../utils/notify';
 import { WatchlistPanel } from './WatchlistPanel';
-
-const DEFAULT_ICON = '📋';
-
-// Extracts the first emoji grapheme cluster from a string.
-// Returns empty string if no emoji is found (rejects plain ASCII input).
-function extractEmoji(input: string): string {
-  if (!input) return '';
-  const segments = [...new Intl.Segmenter().segment(input)];
-  const found = segments.find(({ segment }) => /[^\u0020-\u007E]/.test(segment));
-  return found?.segment ?? '';
-}
-
-const EMOJI_OPTIONS = [
-  '📋', '📈', '📉', '📊', '💰', '🔥', '⚡', '🎯',
-  '💎', '🚀', '⭐', '🌟', '💡', '🏆', '🔑', '🛡️',
-  '🌊', '🦁', '🐂', '🐻', '🎲', '🔮', '💫', '🌙',
-  '☀️', '🏅', '💪', '🧠', '👁️', '🎭',
-];
-
-interface EmojiPickerProps {
-  value: string;
-  onChange: (emoji: string) => void;
-}
-
-function EmojiPicker({ value, onChange }: EmojiPickerProps) {
-  const [opened, { open, close }] = useDisclosure(false);
-  const [customInput, setCustomInput] = useState('');
-
-  function handleSelect(emoji: string) {
-    onChange(emoji);
-    close();
-  }
-
-  function handleCustomChange(val: string) {
-    setCustomInput(val);
-    const emoji = extractEmoji(val);
-    if (emoji) {
-      onChange(emoji);
-      setCustomInput('');
-      close();
-    }
-  }
-
-  return (
-    <Input.Wrapper label="Icon">
-      <Popover opened={opened} onClose={close} withinPortal position="bottom-start">
-        <Popover.Target>
-          <UnstyledButton
-            onClick={opened ? close : open}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 24,
-              width: 42,
-              height: 36,
-              border: '1px solid var(--mantine-color-default-border)',
-              borderRadius: 'var(--mantine-radius-sm)',
-              background: 'var(--mantine-color-default)',
-              cursor: 'pointer',
-            }}
-          >
-            {value}
-          </UnstyledButton>
-        </Popover.Target>
-        <Popover.Dropdown p="xs">
-          <Stack gap="xs">
-            <SimpleGrid cols={8} spacing={2}>
-              {EMOJI_OPTIONS.map((emoji) => (
-                <ActionIcon
-                  key={emoji}
-                  variant={value === emoji ? 'filled' : 'subtle'}
-                  color="gray"
-                  size="lg"
-                  onClick={() => handleSelect(emoji)}
-                  style={{ fontSize: 18 }}
-                >
-                  {emoji}
-                </ActionIcon>
-              ))}
-            </SimpleGrid>
-            <Divider />
-            <TextInput
-              placeholder="or paste your own emoji"
-              value={customInput}
-              onChange={(e) => handleCustomChange(e.currentTarget.value)}
-              onFocus={() => setCustomInput('')}
-              size="xs"
-            />
-            <UnstyledButton
-              onClick={() => handleSelect(DEFAULT_ICON)}
-              style={{ fontSize: 12, color: 'var(--mantine-color-dimmed)', textAlign: 'center' }}
-            >
-              Reset to default
-            </UnstyledButton>
-          </Stack>
-        </Popover.Dropdown>
-      </Popover>
-    </Input.Wrapper>
-  );
-}
-
-interface SortableTabProps {
-  id: string;
-  children: React.ReactNode;
-}
-
-function SortableTab({ id, children }: SortableTabProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.5 : 1,
-        cursor: isDragging ? 'grabbing' : undefined,
-      }}
-    >
-      <div
-        {...attributes}
-        {...listeners}
-        style={{ display: 'flex', alignItems: 'center', padding: '0 2px', cursor: 'grab', color: 'var(--mantine-color-dark-3)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <IconGripVertical size={12} />
-      </div>
-      {children}
-    </div>
-  );
-}
+import { EmojiPicker } from '../../components/EmojiPicker';
+import { DEFAULT_ICON } from '../../utils/helpers';
+import { SortableTab } from '../../components/SortableTab';
 
 export function Home() {
   const tabOrientation = useAppStore((s) => s.tabOrientation);

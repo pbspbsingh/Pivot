@@ -107,34 +107,9 @@ pub async fn get_prompt_for_stock(
         .await?
         .ok_or_else(|| ApiError::NotFound("Prompt not found".into()))?;
 
-    let mut input = crate::pipeline::score::build_base_input(&analysis);
-    if !watchlist.is_default {
-        input["forecast"] =
-            serde_json::to_value(&analysis.forecast.0).map_err(|e| ApiError::Internal(e.into()))?;
-    }
-
-    let input_json =
-        serde_json::to_string_pretty(&input).map_err(|e| ApiError::Internal(e.into()))?;
-
-    // Replace the dummy JSON block under ## INPUT with real data.
-    // Search for closing fence only after the opening fence to avoid matching \n``` inside ```json.
-    let full_prompt = if let Some(open) = prompt.find("```json\n") {
-        let after_open = open + "```json\n".len();
-        if let Some(rel_close) = prompt[after_open..].find("\n```") {
-            let close = after_open + rel_close;
-            let after_close = close + "\n```".len();
-            format!(
-                "{}```json\n{}\n```{}",
-                &prompt[..open],
-                input_json,
-                &prompt[after_close..]
-            )
-        } else {
-            format!("{}\n\n```json\n{}\n```", prompt, input_json)
-        }
-    } else {
-        format!("{}\n\n```json\n{}\n```", prompt, input_json)
-    };
+    let full_prompt =
+        crate::pipeline::score::build_prompt(&prompt, &analysis, watchlist.is_default)
+            .map_err(ApiError::Internal)?;
 
     axum::response::Response::builder()
         .header("Content-Type", "text/plain; charset=utf-8")

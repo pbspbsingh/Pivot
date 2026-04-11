@@ -11,6 +11,6 @@ user_data_dir = "/home/pbs/Workspace/ChromeData"
 launch_if_needed = true
 
 #[scorer]
-#type = "ollama"
-#host = "http://192.168.1.230:11434"
-#model = "gemma3:27b"
+#type = "deepseek"
+#api_key = "sk-fbbc41dbf3a545969efa765524e1ef89"
+#model = "deepseek-reasoner"

@@ -146,7 +146,7 @@ pub async fn add_stocks(
         db::watchlists::add_stocks(id, &new_stocks).await?;
         let truly_new: Vec<&String> = added.iter().filter(|s| !existing.contains(*s)).collect();
         tracing::info!(watchlist_id = id, added = ?added, "Stocks added to watchlist");
-        for symbol in &truly_new {
+        for symbol in truly_new {
             if let Err(e) = db::jobs::enqueue(symbol, id).await {
                 tracing::warn!(
                     watchlist_id = id,

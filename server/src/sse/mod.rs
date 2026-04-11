@@ -1,7 +1,7 @@
 use axum::response::sse::Event;
-use chrono::Local;
+use chrono::{Local, NaiveDateTime};
 
-use crate::models::{WatchlistSnapshot, jobs::JobSummary};
+use crate::models::{JobStatus, PipelineStep, WatchlistSnapshot, jobs::JobSummary};
 use std::{
     collections::HashMap,
     convert::Infallible,
@@ -76,6 +76,29 @@ async fn build_snapshot() -> anyhow::Result<Vec<WatchlistSnapshot>> {
         snapshots.push(WatchlistSnapshot { watchlist, stocks });
     }
     Ok(snapshots)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn broadcast_job(
+    job_id: i64,
+    symbol: &str,
+    watchlist_id: i64,
+    status: JobStatus,
+    step: PipelineStep,
+    error: Option<String>,
+    phase_started_at: Option<NaiveDateTime>,
+    accumulated_ms: i64,
+) {
+    broadcast(SseMessage::Job(JobSummary {
+        job_id,
+        symbol: symbol.to_string(),
+        watchlist_id,
+        status,
+        step,
+        error,
+        phase_started_at,
+        accumulated_ms,
+    }));
 }
 
 pub fn broadcast(msg: SseMessage) {
