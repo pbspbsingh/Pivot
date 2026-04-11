@@ -1,6 +1,8 @@
 pub mod analysis;
 pub mod edgar;
+pub mod images;
 pub mod jobs;
+pub mod notes;
 pub mod prompts;
 pub mod watchlists;
 

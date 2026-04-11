@@ -2,6 +2,7 @@ mod api;
 mod assets;
 mod config;
 mod db;
+mod markdown;
 mod models;
 mod pipeline;
 mod sse;

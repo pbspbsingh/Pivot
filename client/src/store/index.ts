@@ -21,6 +21,8 @@ interface AppState {
   setTabOrientation: (orientation: TabOrientation) => void;
   scorePanelLayout: 'split' | 'stacked';
   setScorePanelLayout: (layout: 'split' | 'stacked') => void;
+  stockPageTab: 'charts' | 'score' | 'notes';
+  setStockPageTab: (tab: 'charts' | 'score' | 'notes') => void;
 
   // Watchlists — fetched by Layout (always mounted), updated by Home on CRUD
   watchlists: Watchlist[];
@@ -72,6 +74,12 @@ export const useAppStore = create<AppState>((set) => ({
   setScorePanelLayout: (scorePanelLayout) => {
     localStorage.setItem('scorePanelLayout', scorePanelLayout);
     set({ scorePanelLayout });
+  },
+
+  stockPageTab: (localStorage.getItem('stockPageTab') as 'charts' | 'score' | 'notes') ?? 'charts',
+  setStockPageTab: (stockPageTab) => {
+    localStorage.setItem('stockPageTab', stockPageTab);
+    set({ stockPageTab });
   },
 
   watchlists: [],

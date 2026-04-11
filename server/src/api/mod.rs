@@ -1,5 +1,7 @@
 pub mod error;
+mod images;
 mod jobs;
+mod notes;
 mod prompts;
 mod watchlists;
 
@@ -46,6 +48,12 @@ pub fn router() -> Router {
             "/api/watchlists/{id}/stocks/{symbol}/analyze",
             post(jobs::enqueue_stock),
         )
+        .route(
+            "/api/stocks/{symbol}/note",
+            get(notes::get).put(notes::save),
+        )
+        .route("/api/stocks/{symbol}/images", post(images::upload))
+        .route("/api/images/{id}", get(images::serve))
         .route("/api/prompts", get(prompts::list))
         .route("/api/prompts/{key}", patch(prompts::update))
         .route("/api/jobs/{job_id}/log", get(jobs::get_job_log))
