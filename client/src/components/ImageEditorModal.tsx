@@ -421,7 +421,7 @@ export function ImageEditorModal({ open, imageData, onConfirm, onClose }: Props)
     <Modal
       opened={open}
       onClose={onClose}
-      size="xl"
+      size="90vw"
       padding={0}
       withCloseButton={false}
       styles={{
@@ -573,7 +573,7 @@ export function ImageEditorModal({ open, imageData, onConfirm, onClose }: Props)
             style={{
               display: 'block',
               maxWidth: '100%',
-              maxHeight: '58vh',
+              maxHeight: '80vh',
               cursor: mode === 'annotate' && tool === 'text' ? 'text' : cursor,
               boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
               borderRadius: 2,

@@ -110,6 +110,7 @@ export function NotesTab({ symbol }: Props) {
   const readContainerRef = useRef<HTMLDivElement>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fsTextareaRef = useRef<HTMLTextAreaElement>(null);
   const cursorPosRef = useRef(0);
   const loadedSymbolRef = useRef<string | null>(null);
   const isDirty = content !== savedContent;
@@ -120,6 +121,8 @@ export function NotesTab({ symbol }: Props) {
   useEffect(() => {
     setLoading(true);
     setMode('read');
+    setSelectedImg(null);
+    setLiveWidth(null);
     loadedSymbolRef.current = null;
     notesApi.get(symbol)
       .then(({ content: c, html: h }) => {
@@ -228,11 +231,11 @@ export function NotesTab({ symbol }: Props) {
   // Focus textarea when switching to edit mode
   useEffect(() => {
     if (mode === 'edit') {
-      requestAnimationFrame(() => textareaRef.current?.focus());
+      requestAnimationFrame(() => (fullscreen ? fsTextareaRef : textareaRef).current?.focus());
     }
     // Clear image selection when leaving read mode
     if (mode !== 'read') setSelectedImg(null);
-  }, [mode]);
+  }, [mode, fullscreen]);
 
   // Image click → select; click elsewhere → deselect
   useEffect(() => {
@@ -558,15 +561,106 @@ export function NotesTab({ symbol }: Props) {
         opened={fullscreen}
         onClose={() => setFullscreen(false)}
         fullScreen
-        padding="xl"
+        padding={0}
         title={`${symbol} — Notes`}
         withCloseButton
         styles={{
           content: { background: 'var(--mantine-color-dark-8)', display: 'flex', flexDirection: 'column' },
-          body: { flex: 1, overflow: 'auto', padding: '20px 28px' },
+          body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: 0 },
         }}
       >
-        <div className="pivot-note" dangerouslySetInnerHTML={{ __html: html }} />
+        {/* Content */}
+        <Box style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+          {mode === 'edit' ? (
+            <textarea
+              ref={fsTextareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onPaste={handlePaste}
+              placeholder={'# Notes\n\nStart writing your analysis...\n\nPaste a screenshot with Ctrl+V'}
+              spellCheck={false}
+              style={{
+                display: 'block',
+                width: '100%',
+                height: '100%',
+                background: 'var(--mantine-color-dark-9)',
+                color: 'var(--mantine-color-gray-2)',
+                border: 'none',
+                outline: 'none',
+                padding: '16px 24px',
+                fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace",
+                fontSize: 13,
+                lineHeight: 1.7,
+                resize: 'none',
+                caretColor: '#f59e0b',
+                boxSizing: 'border-box',
+              }}
+            />
+          ) : (
+            <Box style={{ height: '100%', overflowY: 'auto', padding: '16px 24px' }}>
+              {html
+                ? <div className="pivot-note" dangerouslySetInnerHTML={{ __html: html }} />
+                : (
+                  <Box style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer' }} onClick={() => setMode('edit')}>
+                    <Text size="sm" c="dark.3" style={{ userSelect: 'none' }}>No notes yet</Text>
+                    <Text size="xs" c="dark.3" style={{ userSelect: 'none' }}>Press <Box component="kbd" style={{ fontFamily: 'monospace', background: 'var(--mantine-color-dark-5)', padding: '1px 6px', borderRadius: 3, fontSize: 11 }}>E</Box> to start writing</Text>
+                  </Box>
+                )
+              }
+            </Box>
+          )}
+        </Box>
+
+        {/* Bottom bar */}
+        <Group
+          px="md"
+          style={{
+            height: 34,
+            flexShrink: 0,
+            borderTop: '1px solid var(--mantine-color-dark-5)',
+            background: 'var(--mantine-color-dark-9)',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Group gap="xs">
+            {mode === 'edit' && (
+              <Text size="xs" c="dark.2" ff="monospace">
+                {content.split('\n').length}L · {content.length}C
+              </Text>
+            )}
+            {mode === 'edit' && (
+              <Text size="xs" c="dark.4" ff="monospace">Esc to read</Text>
+            )}
+          </Group>
+          <Group gap="xs">
+            {uploading && (
+              <Group gap={4}>
+                <Loader size={10} color="yellow" />
+                <Text size="xs" c="yellow.6" ff="monospace">uploading…</Text>
+              </Group>
+            )}
+            {!uploading && (
+              <Group gap={4}>
+                {saving && <Loader size={10} color="yellow" />}
+                <Text size="xs" ff="monospace" c={saving ? 'yellow.6' : isDirty ? 'orange.4' : 'dark.2'}>
+                  {saving ? 'Saving...' : isDirty ? 'Unsaved' : 'Saved'}
+                </Text>
+              </Group>
+            )}
+            {mode === 'edit' && (
+              <Tooltip label="Save" position="top">
+                <ActionIcon size="sm" variant={isDirty ? 'light' : 'subtle'} color={isDirty ? 'yellow' : 'gray'} disabled={saving || !isDirty} onClick={() => save(content)}>
+                  <IconDeviceFloppy size={13} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+            <Tooltip label={mode === 'read' ? 'Edit (E)' : 'Read (Esc)'} position="top">
+              <ActionIcon size="sm" variant={mode === 'edit' ? 'filled' : 'subtle'} color={mode === 'edit' ? 'yellow' : 'gray'} onClick={() => setMode(mode === 'read' ? 'edit' : 'read')}>
+                {mode === 'read' ? <IconEdit size={13} /> : <IconEye size={13} />}
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        </Group>
       </Modal>
 
       <ImageEditorModal
