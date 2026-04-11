@@ -1,5 +1,6 @@
 use axum::{Json, extract::Path, http::StatusCode};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 use crate::{
     api::error::{ApiError, ApiResult},
@@ -137,9 +138,15 @@ pub async fn add_stocks(
     }
 
     if !new_stocks.is_empty() {
+        let existing: HashSet<String> = db::watchlists::list_stocks(id)
+            .await?
+            .into_iter()
+            .map(|s| s.symbol)
+            .collect();
         db::watchlists::add_stocks(id, &new_stocks).await?;
+        let truly_new: Vec<&String> = added.iter().filter(|s| !existing.contains(*s)).collect();
         tracing::info!(watchlist_id = id, added = ?added, "Stocks added to watchlist");
-        for symbol in &added {
+        for symbol in &truly_new {
             if let Err(e) = db::jobs::enqueue(symbol, id).await {
                 tracing::warn!(
                     watchlist_id = id,
