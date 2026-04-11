@@ -10,7 +10,7 @@ use tokio::time::sleep;
 use crate::{
     config::CONFIG,
     db,
-    models::jobs::AnalysisJob,
+    models::jobs::{AnalysisJob, JobSummary},
     models::pipeline::{EarningsData, EarningsRelease, ForecastData, StockBasicInfo},
     models::{JobStatus, PipelineStep},
     pipeline::{score::Scorer, tradingview::TradingView},
@@ -222,32 +222,32 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
             .await
             .map(|(t, ms)| (Some(t), ms))
             .unwrap_or((None, 0));
-        sse::broadcast_job(
+        sse::broadcast_job(JobSummary {
             job_id,
-            &symbol,
+            symbol: symbol.clone(),
             watchlist_id,
-            JobStatus::Running,
-            resume_at,
-            None,
+            status: JobStatus::Running,
+            step: resume_at,
+            error: None,
             phase_started_at,
             accumulated_ms,
-        );
+        });
 
         let tv = trading_view().await.map_err(|e| e.to_string())?;
 
         for (i, &step) in SCRAPING_STEPS[start..].iter().enumerate() {
             if i > 0 {
                 db::jobs::set_step(job_id, step).await.ok();
-                sse::broadcast_job(
+                sse::broadcast_job(JobSummary {
                     job_id,
-                    &symbol,
+                    symbol: symbol.clone(),
                     watchlist_id,
-                    JobStatus::Running,
+                    status: JobStatus::Running,
                     step,
-                    None,
+                    error: None,
                     phase_started_at,
                     accumulated_ms,
-                );
+                });
             }
             match step {
                 PipelineStep::BasicInfo => {
@@ -291,32 +291,32 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
         if job.retry_count < MAX_JOB_RETRIES {
             tracing::warn!(job_id, symbol, attempt, "Step failed, requeueing for retry");
             db::jobs::enqueue(&symbol, watchlist_id).await.ok();
-            sse::broadcast_job(
+            sse::broadcast_job(JobSummary {
                 job_id,
-                &symbol,
+                symbol: symbol.clone(),
                 watchlist_id,
-                JobStatus::Pending,
-                PipelineStep::Queued,
-                None,
-                None,
-                0,
-            );
+                status: JobStatus::Pending,
+                step: PipelineStep::Queued,
+                error: None,
+                phase_started_at: None,
+                accumulated_ms: 0,
+            });
         } else {
             tracing::warn!(
                 job_id,
                 symbol,
                 "Job failed permanently after {attempt} attempts: {e}"
             );
-            sse::broadcast_job(
+            sse::broadcast_job(JobSummary {
                 job_id,
-                &symbol,
+                symbol: symbol.clone(),
                 watchlist_id,
-                JobStatus::Failed,
-                PipelineStep::Queued,
-                Some(e),
-                None,
-                0,
-            );
+                status: JobStatus::Failed,
+                step: PipelineStep::Queued,
+                error: Some(e),
+                phase_started_at: None,
+                accumulated_ms: 0,
+            });
         }
     }
 }
@@ -325,16 +325,16 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
 async fn finish_scraping(job_id: i64, symbol: &str, watchlist_id: i64, scoring_enabled: bool) {
     if scoring_enabled {
         db::jobs::set_partial_completed(job_id).await.ok();
-        sse::broadcast_job(
+        sse::broadcast_job(JobSummary {
             job_id,
-            symbol,
+            symbol: symbol.to_string(),
             watchlist_id,
-            JobStatus::PartialCompleted,
-            PipelineStep::ScoreQueued,
-            None,
-            None,
-            0,
-        );
+            status: JobStatus::PartialCompleted,
+            step: PipelineStep::ScoreQueued,
+            error: None,
+            phase_started_at: None,
+            accumulated_ms: 0,
+        });
         tracing::info!(
             job_id,
             symbol,
@@ -346,16 +346,16 @@ async fn finish_scraping(job_id: i64, symbol: &str, watchlist_id: i64, scoring_e
             tracing::warn!(job_id, symbol, "Failed to clear stale score: {e}");
         }
         db::jobs::complete(job_id).await.ok();
-        sse::broadcast_job(
+        sse::broadcast_job(JobSummary {
             job_id,
-            symbol,
+            symbol: symbol.to_string(),
             watchlist_id,
-            JobStatus::Completed,
-            PipelineStep::Done,
-            None,
-            None,
-            0,
-        );
+            status: JobStatus::Completed,
+            step: PipelineStep::Done,
+            error: None,
+            phase_started_at: None,
+            accumulated_ms: 0,
+        });
         tracing::info!(
             job_id,
             symbol,
@@ -384,16 +384,16 @@ async fn process_scoring_job(job: AnalysisJob) {
                     .await
                     .map(|(t, ms)| (Some(t), ms))
                     .unwrap_or((None, 0));
-            sse::broadcast_job(
+            sse::broadcast_job(JobSummary {
                 job_id,
-                &symbol,
+                symbol: symbol.clone(),
                 watchlist_id,
-                JobStatus::Running,
-                PipelineStep::Scoring,
-                None,
+                status: JobStatus::Running,
+                step: PipelineStep::Scoring,
+                error: None,
                 phase_started_at,
                 accumulated_ms,
-            );
+            });
 
             let scorer = scorer();
             run_step(job_id, PipelineStep::Scoring, attempt, || {
@@ -407,16 +407,16 @@ async fn process_scoring_job(job: AnalysisJob) {
             tracing::warn!(job_id, symbol, "Failed to save score: {e}");
         }
         db::jobs::complete(job_id).await.ok();
-        sse::broadcast_job(
+        sse::broadcast_job(JobSummary {
             job_id,
-            &symbol,
+            symbol: symbol.clone(),
             watchlist_id,
-            JobStatus::Completed,
-            PipelineStep::Done,
-            None,
-            None,
-            0,
-        );
+            status: JobStatus::Completed,
+            step: PipelineStep::Done,
+            error: None,
+            phase_started_at: None,
+            accumulated_ms: 0,
+        });
         tracing::info!(job_id, symbol, watchlist_id, "Scoring complete");
         Ok(())
     }
@@ -427,32 +427,32 @@ async fn process_scoring_job(job: AnalysisJob) {
         if job.retry_count < MAX_JOB_RETRIES {
             tracing::warn!(job_id, symbol, attempt, "Scoring failed, requeueing");
             db::jobs::requeue_for_scoring(job_id).await.ok();
-            sse::broadcast_job(
+            sse::broadcast_job(JobSummary {
                 job_id,
-                &symbol,
+                symbol: symbol.clone(),
                 watchlist_id,
-                JobStatus::PartialCompleted,
-                PipelineStep::ScoreQueued,
-                None,
-                None,
-                0,
-            );
+                status: JobStatus::PartialCompleted,
+                step: PipelineStep::ScoreQueued,
+                error: None,
+                phase_started_at: None,
+                accumulated_ms: 0,
+            });
         } else {
             tracing::warn!(
                 job_id,
                 symbol,
                 "Scoring failed permanently after {attempt} attempts: {e}"
             );
-            sse::broadcast_job(
+            sse::broadcast_job(JobSummary {
                 job_id,
-                &symbol,
+                symbol: symbol.clone(),
                 watchlist_id,
-                JobStatus::Failed,
-                PipelineStep::Scoring,
-                Some(e),
-                None,
-                0,
-            );
+                status: JobStatus::Failed,
+                step: PipelineStep::Scoring,
+                error: Some(e),
+                phase_started_at: None,
+                accumulated_ms: 0,
+            });
         }
     }
 }
