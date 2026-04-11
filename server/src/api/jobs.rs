@@ -74,12 +74,11 @@ pub async fn save_score(
     Path((watchlist_id, symbol)): Path<(i64, String)>,
     Json(body): Json<SaveScoreRequest>,
 ) -> ApiResult<impl axum::response::IntoResponse> {
-    use chrono::Utc;
     let symbol = symbol.to_uppercase();
     let stock_score = crate::models::score::StockScore {
         score: body.score,
         criteria: body.criteria,
-        last_updated: Utc::now().naive_utc(),
+        last_updated: chrono::Local::now().naive_local(),
     };
     db::analysis::save_score(&symbol, watchlist_id, &stock_score).await?;
     tracing::info!(watchlist_id, symbol, "Score saved via API");

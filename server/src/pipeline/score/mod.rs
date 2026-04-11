@@ -5,7 +5,6 @@ mod test;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use chrono::Utc;
 use serde_json::{Value, json};
 
 use crate::{
@@ -158,6 +157,6 @@ fn parse_response(raw: &str) -> Result<StockScore> {
     Ok(StockScore {
         score,
         criteria,
-        last_updated: Utc::now().naive_utc(),
+        last_updated: chrono::Local::now().naive_local(),
     })
 }
