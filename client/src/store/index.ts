@@ -19,8 +19,6 @@ interface AppState {
   // UI prefs
   tabOrientation: TabOrientation;
   setTabOrientation: (orientation: TabOrientation) => void;
-  scorePanelLayout: 'split' | 'stacked';
-  setScorePanelLayout: (layout: 'split' | 'stacked') => void;
   stockPageTab: 'charts' | 'score' | 'notes';
   setStockPageTab: (tab: 'charts' | 'score' | 'notes') => void;
 
@@ -68,12 +66,6 @@ export const useAppStore = create<AppState>((set) => ({
   setTabOrientation: (tabOrientation) => {
     localStorage.setItem('tabOrientation', tabOrientation);
     set({ tabOrientation });
-  },
-
-  scorePanelLayout: (localStorage.getItem('scorePanelLayout') as 'split' | 'stacked') ?? 'stacked',
-  setScorePanelLayout: (scorePanelLayout) => {
-    localStorage.setItem('scorePanelLayout', scorePanelLayout);
-    set({ scorePanelLayout });
   },
 
   stockPageTab: (localStorage.getItem('stockPageTab') as 'charts' | 'score' | 'notes') ?? 'charts',
