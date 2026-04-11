@@ -8,6 +8,7 @@ pub mod watchlists;
 
 use crate::config::CONFIG;
 use anyhow::Result;
+use sqlx::sqlite::SqliteAutoVacuum;
 use sqlx::{
     SqlitePool,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous},
@@ -26,11 +27,11 @@ pub async fn init() -> Result<()> {
         .create_if_missing(true)
         .journal_mode(SqliteJournalMode::Wal)
         .synchronous(SqliteSynchronous::Normal)
+        .auto_vacuum(SqliteAutoVacuum::Incremental)
         .busy_timeout(std::time::Duration::from_secs(5));
 
     let pool = SqlitePoolOptions::new()
-        .max_connections(1) // SQLite WAL supports one writer
-        .min_connections(1)
+        .max_connections(4) // SQLite WAL supports one writer
         .connect_with(options)
         .await?;
 

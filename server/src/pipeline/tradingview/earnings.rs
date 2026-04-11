@@ -431,9 +431,9 @@ fn merge_earnings(
             // Skip if truly empty
             if eps_reported.is_none()
                 && revenue_reported.is_none()
-                && earn_entry.as_ref().is_none_or(|e| {
-                    e.eps_estimate.is_none() && e.revenue_estimate.is_none()
-                })
+                && earn_entry
+                    .as_ref()
+                    .is_none_or(|e| e.eps_estimate.is_none() && e.revenue_estimate.is_none())
             {
                 return None;
             }
