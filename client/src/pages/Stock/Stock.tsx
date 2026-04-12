@@ -220,7 +220,7 @@ export function Stock() {
   }, [job?.status, watchlistId, symbol, updateStockScore]);
 
   return (
-    <Box style={{ height: 'calc(100dvh - var(--app-shell-header-height) - var(--app-shell-padding))', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <Box style={{ height: 'calc(100dvh - var(--app-shell-header-height) - var(--app-shell-padding))', display: 'flex', flexDirection: 'column' }}>
       {(isActive || isFailed) && (
         <Box style={{
           position: 'sticky', top: 0, zIndex: 10,
@@ -270,7 +270,7 @@ export function Stock() {
         value={stockPageTab}
         onChange={(v) => v && setStockPageTab(v as 'charts' | 'score' | 'notes')}
         styles={{
-          root: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 },
+          root: { display: 'flex', flexDirection: 'column', flex: 1 },
           list: {
             borderBottom: '1px solid var(--mantine-color-dark-4)',
             background: 'var(--mantine-color-dark-8)',
@@ -285,7 +285,7 @@ export function Stock() {
             padding: '6px 16px',
             borderRadius: 0,
           },
-          panel: { flex: 1, minHeight: 0 },
+          panel: { flex: 1 },
         }}
       >
         <Tabs.List>

@@ -31,7 +31,7 @@ export function TvChart({ exchange, symbol }: Props) {
       locale: 'en',
       toolbar_bg: '#1e1e1e',
       enable_publishing: false,
-      hide_side_toolbar: false,
+      hide_side_toolbar: true,
       allow_symbol_change: false,
       save_image: false,
       autosize: true,

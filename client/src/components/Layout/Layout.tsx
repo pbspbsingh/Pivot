@@ -199,6 +199,7 @@ export function Layout() {
       header={{ height: 56 }}
       navbar={{ width: 220, breakpoint: 'sm', collapsed: { mobile: !opened } }}
       padding="xs"
+      styles={{ main: { overflowY: 'auto' } }}
     >
       <AppShell.Header>
         <Group h="100%" gap={0} wrap="nowrap">
