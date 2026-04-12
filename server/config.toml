@@ -1,6 +1,7 @@
 [server]
 port = 8080
 log_level = "info,pivot_server=debug,chromiumoxide=error"
+auth_token = "e732e6bd146869bb92ed59b19ed4e9f56c68be3af6728e35e96d4a28ffa15821"
 
 [database]
 path = "database.sqlite"
@@ -10,7 +11,7 @@ binary = "/usr/bin/google-chrome"
 user_data_dir = "/home/pbs/Workspace/ChromeData"
 launch_if_needed = true
 
-#[scorer]
-#type = "deepseek"
-#api_key = "sk-fbbc41dbf3a545969efa765524e1ef89"
-#model = "deepseek-reasoner"
+[scorer]
+type = "deepseek"
+api_key = "sk-fbbc41dbf3a545969efa765524e1ef89"
+model = "deepseek-reasoner"

@@ -10,7 +10,7 @@ import {
   Textarea,
   Title,
 } from '@mantine/core';
-import { api, type Prompt } from '../../api';
+import { api, logout, type Prompt } from '../../api';
 import { notifyError, notifySuccess } from '../../utils/notify';
 import { useAppStore } from '../../store';
 
@@ -89,6 +89,14 @@ export function Settings() {
           ))}
         </SimpleGrid>
       </Stack>
+
+      <Divider />
+
+      <Group>
+        <Button variant="subtle" color="red" onClick={logout}>
+          Logout
+        </Button>
+      </Group>
     </Stack>
   );
 }

@@ -1,3 +1,4 @@
+mod auth;
 pub mod error;
 mod images;
 mod jobs;
@@ -6,7 +7,7 @@ mod prompts;
 mod watchlists;
 
 use axum::{
-    Json, Router,
+    Json, Router, middleware,
     response::sse::{Event, KeepAlive, Sse},
     routing::{delete, get, patch, post, put},
 };
@@ -16,8 +17,7 @@ use tokio_stream::Stream;
 use tower_http::cors::CorsLayer;
 
 pub fn router() -> Router {
-    Router::new()
-        .route("/api/health", get(health))
+    let protected = Router::new()
         .route("/api/events", get(events))
         .route(
             "/api/watchlists",
@@ -69,6 +69,13 @@ pub fn router() -> Router {
             "/api/watchlists/{id}/stocks/{symbol}/score",
             put(jobs::save_score),
         )
+        .layer(middleware::from_fn(auth::auth_middleware));
+
+    Router::new()
+        .route("/api/health", get(health))
+        .route("/api/auth/login", post(auth::login))
+        .route("/api/auth/logout", post(auth::logout))
+        .merge(protected)
         .layer(CorsLayer::permissive())
 }
 

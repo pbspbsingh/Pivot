@@ -5,6 +5,7 @@ import { Layout } from './components/Layout/Layout';
 import { Home } from './pages/Home/Home';
 import { Stock } from './pages/Stock/Stock';
 import { Settings } from './pages/Settings/Settings';
+import { Login } from './pages/Login/Login';
 
 const NOT_FOUND_MESSAGES = [
   'HTTP 404: This page has been delisted.',
@@ -34,6 +35,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/login" element={<Login />} />
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="stock/:watchlistId/:symbol" element={<Stock />} />

@@ -31,6 +31,7 @@ pub struct ChromeConfig {
 pub struct ServerConfig {
     pub port: u16,
     pub log_level: String,
+    pub auth_token: String,
 }
 
 #[derive(Deserialize)]
