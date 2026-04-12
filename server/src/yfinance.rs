@@ -4,6 +4,7 @@ use crate::utils::CLIENT;
 use reqwest::header;
 use serde::Deserialize;
 use std::collections::HashMap;
+use tracing::warn;
 
 const SEARCH_URL: &str = "https://query2.finance.yahoo.com/v1/finance/search";
 
@@ -93,7 +94,7 @@ fn to_tradingview(exch: &str) -> &str {
         // United States
         "NASDAQ" | "NasdaqGS" | "NasdaqGM" | "NasdaqCM" => "NASDAQ",
         "NYSE" | "New York Stock Exchange" => "NYSE",
-        "NYSE American" | "American Stock Exchange" => "AMEX",
+        "NYSE American" | "American Stock Exchange" | "NYSE MKT" => "AMEX",
         "NYSE Arca" => "NYSEARCA",
         "Cboe BZX" | "BATS" => "CBOE",
         "OTC Bulletin Board" | "Other OTC" | "Pink Sheets" | "OTC Markets" => "OTC",
@@ -134,7 +135,10 @@ fn to_tradingview(exch: &str) -> &str {
         "Brazil" | "Bovespa" => "BMFBOVESPA",
         "Mexico" => "BMV",
         // Unknown — pass through as-is
-        other => other,
+        other => {
+            warn!("Invalid Exchange detected {other}");
+            other
+        },
     }
 }
 
@@ -147,7 +151,7 @@ mod tests {
         let symbols = vec![
             "AAPL".to_string(),
             "TSLA".to_string(),
-            "INVALID_XYZ".to_string(),
+            "UUUU".to_string(),
         ];
         let result = get_exchanges(&symbols).await;
 
