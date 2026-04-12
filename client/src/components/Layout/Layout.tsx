@@ -14,7 +14,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet } from 'react-router-dom';
 import { NavLink as RouterNavLink, useNavigate } from 'react-router-dom';
-import { IconSettings, IconTrash, IconSortAZ, IconSortDescendingNumbers, IconCalendarDown, IconSearch } from '@tabler/icons-react';
+import { IconSettings, IconTrash, IconSortAZ, IconSortDescendingNumbers, IconCalendarDown, IconSearch, IconFilterOff } from '@tabler/icons-react';
 import { watchlistApi } from '../../api/watchlists';
 import { useAppStore } from '../../store';
 import { useServerEvents } from '../../hooks/useServerEvents';
@@ -243,6 +243,15 @@ export function Layout() {
               onChange={(e) => setSearchQuery(e.currentTarget.value)}
               style={{ width: 200, flexShrink: 0 }}
             />
+            <ActionIcon
+              variant="subtle"
+              color="orange"
+              title="Reset filters"
+              disabled={!searchQuery && minScore === 0}
+              onClick={() => { setSearchQuery(''); setMinScore(0); }}
+            >
+              <IconFilterOff size={18} />
+            </ActionIcon>
             <ActionIcon
               variant="subtle"
               color="gray"
