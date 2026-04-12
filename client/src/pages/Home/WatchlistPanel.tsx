@@ -92,10 +92,15 @@ export function WatchlistPanel({ watchlist }: Props) {
 
   useEffect(() => {
     const prev = prevJobsRef.current;
-    const newlyCompleted = Object.values(jobsBySymbol).some(
-      (job) => job.status === 'completed' && prev[job.symbol]?.status !== 'completed',
-    );
-    if (newlyCompleted) {
+    const shouldRefresh = Object.values(jobsBySymbol).some((job) => {
+      const prevJob = prev[job.symbol];
+      // partial_completed: scraping done, sector/industry/analyzed_at now in DB
+      if (job.status === 'partial_completed' && prevJob?.status !== 'partial_completed') return true;
+      // completed: scoring done, score now in DB
+      if (job.status === 'completed' && prevJob?.status !== 'completed') return true;
+      return false;
+    });
+    if (shouldRefresh) {
       watchlistApi
         .listStocks(watchlist.id)
         .then((s) => {
