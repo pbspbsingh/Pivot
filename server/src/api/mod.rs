@@ -18,6 +18,7 @@ use tower_http::cors::CorsLayer;
 
 pub fn router() -> Router {
     let protected = Router::new()
+        .route("/api/auth/check", get(auth::check))
         .route("/api/events", get(events))
         .route(
             "/api/watchlists",

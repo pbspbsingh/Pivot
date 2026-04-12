@@ -31,6 +31,10 @@ pub async fn login(Json(body): Json<LoginRequest>) -> Response {
         .unwrap()
 }
 
+pub async fn check() -> StatusCode {
+    StatusCode::OK
+}
+
 pub async fn logout() -> Response {
     Response::builder()
         .status(StatusCode::OK)
