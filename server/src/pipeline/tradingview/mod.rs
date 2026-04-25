@@ -8,6 +8,7 @@ use chrome_driver::{
     Browser, ChromeDriverConfig, Page, PageFeatures,
     chromiumoxide::cdp::browser_protocol::target::CloseTargetParams,
 };
+use tokio::sync::{Mutex, OnceCell};
 
 use crate::config::CONFIG;
 
@@ -47,7 +48,7 @@ impl TradingView {
         })
     }
 
-    async fn goto(&self, url: impl AsRef<str>) -> Result<()> {
+    async fn goto(&mut self, url: impl AsRef<str>) -> Result<()> {
         let url = url.as_ref();
         self.page
             .goto(url)
@@ -64,7 +65,7 @@ impl TradingView {
         Ok(())
     }
 
-    async fn try_close_popup(&self) -> Result<()> {
+    async fn try_close_popup(&mut self) -> Result<()> {
         if let Ok(close_btn) = self
             .page
             .find_element("button[data-qa-id='promo-dialog-close-button']")
@@ -91,4 +92,14 @@ async fn connect_browser() -> Result<Browser> {
         .connect()
         .await
         .context("Failed to connect to Chrome")
+}
+
+/// Returns the shared, lazily-initialised TradingView browser session.
+/// Callers must lock the mutex before use to ensure exclusive tab access:
+/// `let mut tv = tradingview::instance().await?.lock().await;`
+pub async fn instance() -> Result<&'static Mutex<TradingView>> {
+    static TV: OnceCell<Mutex<TradingView>> = OnceCell::const_new();
+    TV.get_or_try_init(|| async { TradingView::new().await.map(Mutex::new) })
+        .await
+        .context("Failed to initialise TradingView browser session")
 }

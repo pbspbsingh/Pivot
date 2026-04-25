@@ -4,7 +4,6 @@ use std::{
 };
 
 use serde::{Serialize, de::DeserializeOwned};
-use tokio::sync::OnceCell;
 use tokio::time::sleep;
 
 use crate::{
@@ -13,7 +12,7 @@ use crate::{
     models::jobs::{AnalysisJob, JobSummary},
     models::pipeline::{EarningsData, EarningsRelease, ForecastData, StockBasicInfo},
     models::{JobStatus, PipelineStep},
-    pipeline::{score::Scorer, tradingview::TradingView},
+    pipeline::{score::Scorer, tradingview},
     sse,
 };
 
@@ -138,20 +137,19 @@ async fn find_resume_step(job_id: i64) -> Result<Option<usize>, String> {
     Ok(None)
 }
 
-async fn run_step<T, F, Fut>(
+async fn run_step<T, Fut>(
     job_id: i64,
     step: PipelineStep,
     attempt: i64,
-    f: F,
+    fut: Fut,
 ) -> Result<(), String>
 where
-    F: Fn() -> Fut,
     Fut: Future<Output = anyhow::Result<T>>,
     T: Serialize,
 {
     let t0 = Instant::now();
     let ms = || t0.elapsed().as_millis() as i64;
-    match f().await {
+    match fut.await {
         Ok(data) => {
             let json = serde_json::to_value(&data).map_err(|e| format!("serialize error: {e}"))?;
             db::jobs::save_step_data(job_id, step, &json).await.ok();
@@ -233,7 +231,11 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
             accumulated_ms,
         });
 
-        let tv = trading_view().await.map_err(|e| e.to_string())?;
+        let mut tv = tradingview::instance()
+            .await
+            .map_err(|e| e.to_string())?
+            .lock()
+            .await;
 
         for (i, &step) in SCRAPING_STEPS[start..].iter().enumerate() {
             if i > 0 {
@@ -251,27 +253,39 @@ async fn process_scraping_job(job: AnalysisJob, scoring_enabled: bool) {
             }
             match step {
                 PipelineStep::BasicInfo => {
-                    run_step(job_id, step, attempt, || {
-                        tv.fetch_basic_info(&exchange, &symbol)
-                    })
+                    run_step(
+                        job_id,
+                        step,
+                        attempt,
+                        tv.fetch_basic_info(&exchange, &symbol),
+                    )
                     .await
                 }
                 PipelineStep::Earnings => {
-                    run_step(job_id, step, attempt, || {
-                        tv.fetch_earnings_data(&exchange, &symbol)
-                    })
+                    run_step(
+                        job_id,
+                        step,
+                        attempt,
+                        tv.fetch_earnings_data(&exchange, &symbol),
+                    )
                     .await
                 }
                 PipelineStep::Forecast => {
-                    run_step(job_id, step, attempt, || {
-                        tv.fetch_forecast_data(&exchange, &symbol)
-                    })
+                    run_step(
+                        job_id,
+                        step,
+                        attempt,
+                        tv.fetch_forecast_data(&exchange, &symbol),
+                    )
                     .await
                 }
                 PipelineStep::Document => {
-                    run_step(job_id, step, attempt, || {
-                        tv.fetch_earnings_release(&exchange, &symbol)
-                    })
+                    run_step(
+                        job_id,
+                        step,
+                        attempt,
+                        tv.fetch_earnings_release(&exchange, &symbol),
+                    )
                     .await
                 }
                 _ => Ok(()),
@@ -396,9 +410,12 @@ async fn process_scoring_job(job: AnalysisJob) {
             });
 
             let scorer = scorer();
-            run_step(job_id, PipelineStep::Scoring, attempt, || {
-                scorer.evaluate_score(watchlist_id, &symbol)
-            })
+            run_step(
+                job_id,
+                PipelineStep::Scoring,
+                attempt,
+                scorer.evaluate_score(watchlist_id, &symbol),
+            )
             .await?;
         }
 
@@ -455,11 +472,6 @@ async fn process_scoring_job(job: AnalysisJob) {
             });
         }
     }
-}
-
-async fn trading_view() -> anyhow::Result<&'static TradingView> {
-    static TV: OnceCell<TradingView> = OnceCell::const_new();
-    TV.get_or_try_init(TradingView::new).await
 }
 
 fn scorer() -> &'static Scorer {

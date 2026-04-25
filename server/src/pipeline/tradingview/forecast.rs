@@ -7,7 +7,7 @@ use super::{TV_HOME, TradingView, round2};
 impl TradingView {
     /// Fetches price target and analyst ratings from the TradingView forecast page.
     pub async fn fetch_forecast_data(
-        &self,
+        &mut self,
         exchange: &str,
         symbol: &str,
     ) -> Result<Option<ForecastData>> {
@@ -52,7 +52,7 @@ impl TradingView {
     /// Extracts price target and analyst rating data from the TradingView
     /// forecast page. Returns `serde_json::Value` (null if forecast page is
     /// unavailable).
-    async fn evaluate_forecast_js(&self) -> Result<serde_json::Value> {
+    async fn evaluate_forecast_js(&mut self) -> Result<serde_json::Value> {
         // forecastPage- and sectionSubtitle- prefixes are semantic and stable.
         // All other selectors anchor on text content or the stable analystRating- prefix.
         const JS: &str = r#"(function() {
@@ -177,7 +177,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_forecast_data() {
-        let scraper = TradingView::new()
+        let mut scraper = TradingView::new()
             .await
             .expect("Failed to initialise TradingViewScraper");
 

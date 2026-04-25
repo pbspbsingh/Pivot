@@ -14,7 +14,7 @@ impl TradingView {
     /// candidates are external links — these are treated as success so the
     /// overall pipeline job is not failed or retried.
     pub async fn fetch_earnings_release(
-        &self,
+        &mut self,
         exchange: &str,
         symbol: &str,
     ) -> Result<Option<EarningsRelease>> {
@@ -154,7 +154,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_earnings_release() {
-        let scraper = TradingView::new()
+        let mut scraper = TradingView::new()
             .await
             .expect("Failed to initialise TradingViewScraper");
 

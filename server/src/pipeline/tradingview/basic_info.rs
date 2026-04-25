@@ -7,7 +7,11 @@ use super::{TV_HOME, TradingView};
 impl TradingView {
     /// Fetches basic stock info (description, sector, industry) from the
     /// TradingView symbol overview page.
-    pub async fn fetch_basic_info(&self, exchange: &str, symbol: &str) -> Result<StockBasicInfo> {
+    pub async fn fetch_basic_info(
+        &mut self,
+        exchange: &str,
+        symbol: &str,
+    ) -> Result<StockBasicInfo> {
         let url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/");
 
         self.goto(&url).await?;
@@ -63,7 +67,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_basic_info() {
-        let scraper = TradingView::new()
+        let mut scraper = TradingView::new()
             .await
             .expect("Failed to initialise TradingViewScraper");
 

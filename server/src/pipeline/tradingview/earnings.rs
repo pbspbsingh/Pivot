@@ -19,7 +19,11 @@ struct IncomeEntry {
 // ── TradingView methods ───────────────────────────────────────────────────────
 
 impl TradingView {
-    pub async fn fetch_earnings_data(&self, exchange: &str, symbol: &str) -> Result<EarningsData> {
+    pub async fn fetch_earnings_data(
+        &mut self,
+        exchange: &str,
+        symbol: &str,
+    ) -> Result<EarningsData> {
         // 1. Income statement — reported values + YoY
         let is_url = format!("{TV_HOME}/symbols/{exchange}-{symbol}/financials-income-statement/");
         self.goto(&is_url).await?;
@@ -85,7 +89,7 @@ impl TradingView {
         })
     }
 
-    async fn available_tabs(&self) -> Result<Vec<String>> {
+    async fn available_tabs(&mut self) -> Result<Vec<String>> {
         self.page
             .evaluate(
                 r#"Array.from(document.querySelectorAll('[id="FQ"],[id="FY"],[id="FH"]'))
@@ -98,7 +102,7 @@ impl TradingView {
     }
 
     async fn extract_income_statement(
-        &self,
+        &mut self,
         periodicity: Periodicity,
         symbol: &str,
     ) -> Result<HashMap<String, IncomeEntry>> {
@@ -127,7 +131,7 @@ impl TradingView {
         })
     }
 
-    async fn evaluate_income_statement_js(&self) -> Result<serde_json::Value> {
+    async fn evaluate_income_statement_js(&mut self) -> Result<serde_json::Value> {
         const JS: &str = r#"(function() {
             // Period labels from the sticky header row
             const sticky = document.querySelector('[class*="stickyContainer-"]');
@@ -170,7 +174,7 @@ impl TradingView {
     }
 
     async fn extract_earnings(
-        &self,
+        &mut self,
         periodicity: Periodicity,
         symbol: &str,
     ) -> Result<Vec<EarningsEntry>> {
@@ -197,7 +201,7 @@ impl TradingView {
             .with_context(|| format!("Failed to parse earnings data ({tab_id}) for {symbol}"))
     }
 
-    async fn evaluate_earnings_js(&self) -> Result<serde_json::Value> {
+    async fn evaluate_earnings_js(&mut self) -> Result<serde_json::Value> {
         const JS: &str = r#"(function() {
             const tableNames = ['eps', 'revenue'];
             const ROW_NAMES  = ['Reported', 'Estimate', 'Surprise'];
@@ -554,7 +558,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_earnings_data() {
-        let scraper = TradingView::new()
+        let mut scraper = TradingView::new()
             .await
             .expect("Failed to initialise TradingViewScraper");
 
