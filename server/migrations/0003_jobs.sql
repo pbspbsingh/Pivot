@@ -1,16 +1,16 @@
 CREATE TABLE analysis_jobs (
-    id           INTEGER  PRIMARY KEY AUTOINCREMENT,
-    symbol       TEXT     NOT NULL,
-    watchlist_id INTEGER  NOT NULL REFERENCES watchlists(id) ON DELETE CASCADE,
-    status       TEXT     NOT NULL DEFAULT 'pending',
-    current_step TEXT     NOT NULL DEFAULT 'queued',
-    error        TEXT,
-    retry_count  INTEGER  NOT NULL DEFAULT 0,
-    created_at   DATETIME NOT NULL DEFAULT (datetime('now')),
-    updated_at   DATETIME NOT NULL DEFAULT (datetime('now'))
+    id               INTEGER  PRIMARY KEY AUTOINCREMENT,
+    symbol           TEXT     NOT NULL,
+    watchlist_id     INTEGER  NOT NULL REFERENCES watchlists(id) ON DELETE CASCADE,
+    status           TEXT     NOT NULL DEFAULT 'pending',
+    current_step     TEXT     NOT NULL DEFAULT 'queued',
+    error            TEXT,
+    retry_count      INTEGER  NOT NULL DEFAULT 0,
+    phase_started_at DATETIME,
+    accumulated_ms   INTEGER  NOT NULL DEFAULT 0,
+    created_at       DATETIME NOT NULL DEFAULT (datetime('now')),
+    updated_at       DATETIME NOT NULL DEFAULT (datetime('now'))
 );
--- CREATE INDEX idx_analysis_jobs_watchlist_symbol_id
---    ON analysis_jobs (watchlist_id, symbol, id DESC);
 
 CREATE TABLE job_step_data (
     job_id   INTEGER  NOT NULL REFERENCES analysis_jobs(id) ON DELETE CASCADE,

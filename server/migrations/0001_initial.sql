@@ -15,8 +15,9 @@ CREATE TABLE stocks (
 CREATE TABLE watchlist_stocks (
     watchlist_id INTEGER  NOT NULL REFERENCES watchlists(id) ON DELETE CASCADE,
     symbol       TEXT     NOT NULL REFERENCES stocks(symbol) ON DELETE CASCADE,
-    deleted_at   DATETIME,
     added_at     DATETIME NOT NULL DEFAULT (datetime('now')),
+    deleted_at   DATETIME,
+    scrape_date  DATE,
     PRIMARY KEY (watchlist_id, symbol)
 );
 
