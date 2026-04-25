@@ -24,6 +24,8 @@ pub enum ScorerConfig {
 pub struct ChromeConfig {
     pub binary: String,
     pub user_data_dir: Option<String>,
+    #[serde(default)]
+    pub extra_args: Vec<String>,
     pub launch_if_needed: bool,
 }
 

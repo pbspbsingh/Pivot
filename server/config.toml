@@ -9,9 +9,10 @@ path = "database.sqlite"
 [chrome]
 binary = "/usr/bin/google-chrome"
 user_data_dir = "/home/pbs/Workspace/ChromeData"
+extra_args = ["--headless=new"]
 launch_if_needed = true
 
-[scorer]
-type = "deepseek"
-api_key = "sk-fbbc41dbf3a545969efa765524e1ef89"
-model = "deepseek-reasoner"
+# [scorer]
+# type = "deepseek"
+# api_key = "sk-fbbc41dbf3a545969efa765524e1ef89"
+# model = "deepseek-reasoner"

@@ -87,6 +87,7 @@ async fn connect_browser() -> Result<Browser> {
         builder = builder.user_data_dir(dir);
     }
     builder
+        .args(&cfg.extra_args)
         .connect()
         .await
         .context("Failed to connect to Chrome")

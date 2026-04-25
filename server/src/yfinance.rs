@@ -138,7 +138,7 @@ fn to_tradingview(exch: &str) -> &str {
         other => {
             warn!("Invalid Exchange detected {other}");
             other
-        },
+        }
     }
 }
 
@@ -148,11 +148,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_exchanges() {
-        let symbols = vec![
-            "AAPL".to_string(),
-            "TSLA".to_string(),
-            "UUUU".to_string(),
-        ];
+        let symbols = vec!["AAPL".to_string(), "TSLA".to_string(), "UUUU".to_string()];
         let result = get_exchanges(&symbols).await;
 
         match result {
