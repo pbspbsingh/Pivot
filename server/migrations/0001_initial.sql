@@ -3,6 +3,7 @@ CREATE TABLE watchlists (
     name       TEXT     NOT NULL UNIQUE,
     is_default BOOLEAN  NOT NULL DEFAULT FALSE,
     emoji      TEXT     NOT NULL DEFAULT '📋',
+    position   INTEGER  NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT (datetime('now'))
 );
 
