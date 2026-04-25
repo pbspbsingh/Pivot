@@ -82,6 +82,13 @@ pub fn broadcast_job(job: JobSummary) {
     broadcast(SseMessage::Job(job));
 }
 
+pub async fn broadcast_snapshot() {
+    match build_snapshot().await {
+        Ok(snapshot) => broadcast(SseMessage::Snapshot(snapshot)),
+        Err(e) => tracing::warn!("Failed to build SSE snapshot: {e}"),
+    }
+}
+
 pub fn broadcast(msg: SseMessage) {
     let mut clients = CLIENTS.lock().unwrap();
     clients.retain(|id, tx| match tx.try_send(msg.clone()) {

@@ -14,12 +14,12 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet } from 'react-router-dom';
 import { NavLink as RouterNavLink, useNavigate } from 'react-router-dom';
-import { IconSettings, IconTrash, IconSortAZ, IconSortDescendingNumbers, IconCalendarDown, IconSearch, IconFilterOff } from '@tabler/icons-react';
+import { IconSettings, IconTrash, IconSortAZ, IconSortDescendingNumbers, IconCalendarDown, IconSearch, IconFilterOff, IconRefresh } from '@tabler/icons-react';
 import { watchlistApi } from '../../api/watchlists';
 import { useAppStore } from '../../store';
 import { useServerEvents } from '../../hooks/useServerEvents';
 import { AnimatedTime } from '../AnimatedTime';
-import { notifyError } from '../../utils/notify';
+import { notifyError, notifySuccess, notifyWarning } from '../../utils/notify';
 import { sortNavStocks } from '../../utils/navSort';
 import logo from '../../assets/logo.svg';
 
@@ -59,6 +59,8 @@ export function Layout() {
   const [searchQuery, setSearchQuery] = useState('');
   const [minScore, setMinScore] = useState(0);
   const [navFocus, setNavFocus] = useState<NavFocus | null>(null);
+  const [hoveredWatchlistId, setHoveredWatchlistId] = useState<number | null>(null);
+  const [isScraping, setIsScraping] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const navContainerRef = useRef<HTMLDivElement>(null);
@@ -182,6 +184,23 @@ export function Layout() {
     }
   }
 
+  async function handleScrape(id: number) {
+    setIsScraping(true);
+    try {
+      await watchlistApi.triggerScrape(id);
+      notifySuccess('Scrape started');
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (msg === 'Scrape already in progress') {
+        notifyWarning(msg);
+      } else {
+        notifyError(msg);
+      }
+    } finally {
+      setIsScraping(false);
+    }
+  }
+
   async function handleDeleteTicker() {
     if (!tickerMenu) return;
     const { watchlistId, symbol } = tickerMenu;
@@ -287,7 +306,23 @@ export function Layout() {
                   tabIndex={-1}
                   label={<Text size="sm" fw={600} c="blue.3" style={{ letterSpacing: '0.05em' }}>{w.name}</Text>}
                   leftSection={<span>{w.emoji}</span>}
+                  rightSection={
+                    w.is_default && hoveredWatchlistId === w.id ? (
+                      <ActionIcon
+                        size="xs"
+                        variant="subtle"
+                        color="gray"
+                        loading={isScraping}
+                        title="Scrape EP watchlist"
+                        onClick={(e) => { e.stopPropagation(); handleScrape(w.id); }}
+                      >
+                        <IconRefresh size={12} />
+                      </ActionIcon>
+                    ) : undefined
+                  }
                   opened={isOpen}
+                  onMouseEnter={() => setHoveredWatchlistId(w.id)}
+                  onMouseLeave={() => setHoveredWatchlistId(null)}
                   onClick={() => {
                     setNavFocus({ type: 'watchlist', id: w.id });
                     navContainerRef.current?.focus();

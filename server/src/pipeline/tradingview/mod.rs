@@ -2,6 +2,7 @@ mod basic_info;
 mod document;
 mod earnings;
 mod forecast;
+mod watchlist;
 
 use anyhow::{Context, Result};
 use chrome_driver::{

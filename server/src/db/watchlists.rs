@@ -159,6 +159,36 @@ pub async fn add_stocks(watchlist_id: i64, stocks: &[NewStock]) -> Result<()> {
     Ok(())
 }
 
+/// Adds scraper-sourced stocks to a watchlist, stamping today's scrape_date.
+/// Restores soft-deleted rows if the ticker was previously in the watchlist.
+pub async fn add_scrape_stocks(watchlist_id: i64, stocks: &[NewStock]) -> Result<()> {
+    let mut tx = pool().begin().await?;
+
+    for stock in stocks {
+        sqlx::query!(
+            "INSERT INTO stocks (symbol, exchange) VALUES (?, ?)
+             ON CONFLICT (symbol) DO NOTHING",
+            stock.symbol,
+            stock.exchange
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query!(
+            "INSERT INTO watchlist_stocks (watchlist_id, symbol, scrape_date)
+             VALUES (?, ?, date('now'))
+             ON CONFLICT (watchlist_id, symbol) DO UPDATE SET deleted_at = NULL, scrape_date = date('now')",
+            watchlist_id,
+            stock.symbol
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
+    Ok(())
+}
+
 pub async fn soft_delete_stock(watchlist_id: i64, symbol: &str) -> Result<()> {
     sqlx::query!(
         "UPDATE watchlist_stocks SET deleted_at = datetime('now') WHERE watchlist_id = ? AND symbol = ?",
@@ -188,6 +218,19 @@ pub async fn get_exchange(symbol: &str) -> Result<Option<String>> {
         .fetch_optional(pool())
         .await?;
     Ok(row.map(|r| r.exchange))
+}
+
+/// Soft-deletes all scraper-managed stocks in a watchlist whose scrape_date is
+/// before today. Manually-added stocks (scrape_date IS NULL) are left untouched.
+pub async fn soft_delete_previous_scrape(watchlist_id: i64) -> Result<()> {
+    sqlx::query!(
+        "UPDATE watchlist_stocks SET deleted_at = datetime('now')
+         WHERE watchlist_id = ? AND scrape_date < date('now') AND deleted_at IS NULL",
+        watchlist_id,
+    )
+    .execute(pool())
+    .await?;
+    Ok(())
 }
 
 pub async fn restore_stock(watchlist_id: i64, symbol: &str) -> Result<()> {

@@ -1,13 +1,18 @@
 use axum::{Json, extract::Path, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::{
     api::error::{ApiError, ApiResult},
+    config::CONFIG,
     db,
     models::NewStock,
-    yfinance,
+    pipeline::ep_scheduler,
+    sse, yfinance,
 };
+
+static SCRAPE_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
 #[derive(Deserialize)]
 pub struct WatchlistBody {
@@ -187,4 +192,37 @@ pub async fn restore_stock(
     db::watchlists::restore_stock(id, &symbol).await?;
     tracing::info!(watchlist_id = id, symbol, "Stock restored in watchlist");
     Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn trigger_scrape(Path(id): Path<i64>) -> ApiResult<impl axum::response::IntoResponse> {
+    let url = CONFIG
+        .tv_watchlist
+        .as_ref()
+        .ok_or_else(|| ApiError::BadRequest("No TV watchlist configured".into()))?
+        .url
+        .clone();
+
+    db::watchlists::get(id)
+        .await?
+        .ok_or_else(|| ApiError::NotFound("Watchlist not found".into()))?;
+
+    if SCRAPE_IN_PROGRESS
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return Err(ApiError::Conflict("Scrape already in progress".into()));
+    }
+
+    tokio::spawn(async move {
+        match ep_scheduler::scrape_and_enqueue(id, &url).await {
+            Ok(n) => {
+                tracing::info!(watchlist_id = id, n, "Manual scrape complete");
+                sse::broadcast_snapshot().await;
+            }
+            Err(e) => tracing::error!("Manual scrape failed: {e:#}"),
+        }
+        SCRAPE_IN_PROGRESS.store(false, Ordering::Release);
+    });
+
+    Ok(StatusCode::ACCEPTED)
 }

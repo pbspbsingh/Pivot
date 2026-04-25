@@ -11,6 +11,12 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub chrome: ChromeConfig,
     pub scorer: Option<ScorerConfig>,
+    pub tv_watchlist: Option<TvWatchlistConfig>,
+}
+
+#[derive(Deserialize)]
+pub struct TvWatchlistConfig {
+    pub url: String,
 }
 
 #[derive(Deserialize)]

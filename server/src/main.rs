@@ -26,6 +26,7 @@ async fn main() -> Result<()> {
     db::init().await?;
     sse::init();
     pipeline::queue::start();
+    pipeline::ep_scheduler::start();
 
     let addr = format!("0.0.0.0:{}", CONFIG.server.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;

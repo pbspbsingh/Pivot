@@ -12,6 +12,9 @@ user_data_dir = "/home/pbs/Workspace/ChromeData"
 extra_args = ["--headless=new"]
 launch_if_needed = true
 
+[tv_watchlist]
+url = "https://www.tradingview.com/screener/zoPlhir2/"
+
 # [scorer]
 # type = "deepseek"
 # api_key = "sk-fbbc41dbf3a545969efa765524e1ef89"

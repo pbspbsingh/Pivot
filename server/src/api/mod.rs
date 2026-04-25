@@ -30,6 +30,10 @@ pub fn router() -> Router {
             patch(watchlists::rename).delete(watchlists::delete),
         )
         .route(
+            "/api/watchlists/{id}/scrape",
+            post(watchlists::trigger_scrape),
+        )
+        .route(
             "/api/watchlists/{id}/stocks",
             get(watchlists::list_stocks).post(watchlists::add_stocks),
         )

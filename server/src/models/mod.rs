@@ -55,6 +55,7 @@ pub struct Watchlist {
     pub emoji: String,
 }
 
+#[derive(Debug)]
 pub struct NewStock {
     pub symbol: String,
     pub exchange: String,

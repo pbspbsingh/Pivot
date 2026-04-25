@@ -13,4 +13,5 @@ export const watchlistApi = {
   deleteStock: (id: number, symbol: string) => api.delete<void>(`/watchlists/${id}/stocks/${symbol}`),
   restoreStock: (id: number, symbol: string) => api.post<void>(`/watchlists/${id}/stocks/${symbol}/restore`, {}),
   reorder: (ids: number[]) => api.post<void>('/watchlists/reorder', { ids }),
+  triggerScrape: (id: number) => api.post<void>(`/watchlists/${id}/scrape`, {}),
 };

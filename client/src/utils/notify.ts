@@ -15,3 +15,11 @@ export function notifySuccess(message: string) {
     message,
   });
 }
+
+export function notifyWarning(message: string) {
+  notifications.show({
+    color: 'yellow',
+    title: 'Warning',
+    message,
+  });
+}
